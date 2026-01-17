@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# MedMatch AI - Project specific
+# Generated synthetic data (can be regenerated with generate_synthetic_data.py)
+data/synthetic/*.csv
+data/synthetic/*.json
+
+# Keep the README for documentation
+!data/synthetic/README.md
