@@ -8,22 +8,64 @@ Wrong-patient medical errors (e.g., operating on the wrong John Smith) are "neve
 
 ## Approach
 
-Instead of simple demographic matching, we use AI to understand:
-- Medical histories and patterns
-- Treatment timelines
-- Imaging characteristics
-- Clinical context and terminology
-- Variations in names, dates, and abbreviations
+Instead of simple demographic matching, we use a hybrid 4-stage pipeline:
+
+1. **Blocking** - Reduces O(n²) comparisons by 97% using phonetic and key-based strategies
+2. **Deterministic Rules** - Fast exact matching for clear cases (74% of decisions)
+3. **Feature Scoring** - Weighted confidence scores for moderate difficulty cases
+4. **AI Medical Fingerprinting** - Deep medical history comparison using Gemini API
+
+The system understands:
+
+- Medical abbreviations (T2DM = Type 2 Diabetes, HTN = Hypertension)
+- Name variations and typos (Jennifer vs Jenny, Johnson vs Jonson)
+- Date format differences and errors (03/15/1980 vs 3/15/80)
+- Medical context (Metformin → Diabetes treatment)
+- Clinical narratives and medication histories
 
 ## Project Status
 
-**Current Phase:** Initial setup complete with Gemini API
-- ✓ Development environment configured
-- ✓ Google AI API integrated
-- ✓ Basic entity extraction working
-- ✓ Proof-of-concept matching demonstrated
+✅ **Phase 1 Complete** - Synthetic data generation system
+✅ **Phase 2 Complete** - AI-powered entity resolution (94.51% accuracy)
+🚧 **Phase 3 Planned** - Advanced optimization and uncertainty quantification
+📅 **Phase 4 Planned** - MedGemma integration and Kaggle submission
 
-**Next Phase:** Build production matching algorithms, then migrate to MedGemma
+### Current Capabilities
+
+- **94.51% overall accuracy** on patient matching across all difficulty levels
+- **4-stage progressive pipeline**: Blocking → Rules → Scoring → AI Medical Fingerprinting
+- **97% efficiency improvement** through intelligent blocking (33,930 → 437 pairs)
+- **100% accuracy on AI decisions** for medical history comparison
+- **Explainable decisions** with confidence scores and human-readable explanations
+
+## Entity Resolution Results
+
+Our 4-stage progressive pipeline achieves exceptional accuracy on synthetic patient matching:
+
+**Overall Performance (437 test pairs):**
+
+- **Accuracy:** 94.51%
+- **Precision:** 95%
+- **Recall:** 96%
+- **F1 Score:** 95%
+
+**Accuracy by Difficulty:**
+
+| Difficulty | Target | Achieved | Status |
+| ---------- | ------ | -------- | ------ |
+| Easy | 95% | **100.00%** | ✅ PASS |
+| Medium | 85% | **100.00%** | ✅ PASS |
+| Hard | 70% | **88.24%** | ✅ PASS |
+| Ambiguous | 70% | **80.54%** | ✅ PASS |
+
+**Pipeline Stages:**
+
+1. **Blocking:** Reduces candidate pairs by 97% (33,930 → ~1,000) with 97.3% recall
+2. **Deterministic Rules:** Handles 74% of decisions with 92.6% accuracy
+3. **Feature Scoring:** Handles 0% of decisions (when AI enabled, otherwise 26% with 87.6% accuracy)
+4. **AI Medical Fingerprinting:** Handles 26% of decisions with 100% accuracy
+
+All targets exceeded! See [evaluation notebook](notebooks/01_entity_resolution_evaluation.ipynb) for detailed analysis.
 
 ## Tech Stack
 
@@ -66,6 +108,77 @@ jupyter lab
 # Open notebooks/00_environment_test.ipynb
 ```
 
+## Usage Examples
+
+### Generate Synthetic Data
+
+```bash
+# Fast generation (30 seconds, rule-based)
+python generate_synthetic_data.py --no-ai
+
+# AI-assisted generation (15-20 minutes with rate limiting)
+python generate_synthetic_data.py --api-rate-limit 5
+```
+
+### Run Entity Resolution (Python API)
+
+```python
+from medmatch.matching import PatientMatcher, PatientRecord
+from medmatch.data.models.patient import Demographics
+from datetime import date
+
+# Load or create patient records
+records = [...]  # Load from CSV or create manually
+
+# Create matcher with all stages enabled
+matcher = PatientMatcher(
+    use_blocking=True,
+    use_rules=True,
+    use_scoring=True,
+    use_ai=True,  # Requires GOOGLE_AI_API_KEY in .env
+)
+
+# Match two specific records
+result = matcher.match_pair(records[0], records[1])
+print(f"Match: {result.is_match}")
+print(f"Confidence: {result.confidence:.2f}")
+print(f"Stage: {result.stage}")
+print(result.explanation)
+
+# Batch matching on entire dataset
+results = matcher.match_datasets(records, show_progress=True)
+stats = matcher.get_stats(results)
+print(f"Found {stats['matches']} matches in {stats['total_pairs']} pairs")
+```
+
+### Batch Matching (CLI)
+
+```bash
+python scripts/run_matcher.py \
+  --demographics data/synthetic/synthetic_demographics.csv \
+  --medical-records data/synthetic/synthetic_medical_records.json \
+  --output results.json \
+  --use-ai \
+  --progress
+```
+
+### Evaluate Results
+
+```python
+from medmatch.evaluation import MatchEvaluator
+
+# Evaluate against ground truth
+evaluator = MatchEvaluator('data/synthetic/ground_truth.csv')
+metrics = evaluator.evaluate(results)
+
+print(f"Accuracy: {metrics.accuracy:.2%}")
+print(f"Precision: {metrics.precision:.2%}")
+print(f"Recall: {metrics.recall:.2%}")
+
+# Detailed analysis in Jupyter notebook
+# See notebooks/01_entity_resolution_evaluation.ipynb
+```
+
 ## Project Structure
 
 ```
@@ -91,24 +204,49 @@ medmatch-ai/
 
 ## Roadmap
 
-### Phase 1: Core Algorithm (Current)
-- [ ] Build patient record data structures
-- [ ] Implement entity extraction pipeline
-- [ ] Develop matching confidence scoring
-- [ ] Create test datasets
-- [ ] Build evaluation metrics
+### Phase 1: Synthetic Data Generation ✅ COMPLETE
 
-### Phase 2: MedGemma Integration
+- ✅ Pydantic models for patient records
+- ✅ Demographics generator with variations and edge cases
+- ✅ AI-assisted medical record generation
+- ✅ Ground truth labels for evaluation
+- ✅ 261 records with 437 match pairs for testing
+
+### Phase 2: Entity Resolution Algorithm ✅ COMPLETE
+
+- ✅ **Phase 2.1:** Core infrastructure (PatientRecord, comparators)
+- ✅ **Phase 2.2:** Blocking & deterministic rules
+- ✅ **Phase 2.3:** Feature-based confidence scoring
+- ✅ **Phase 2.4:** AI medical fingerprinting (Gemini API)
+- ✅ **Phase 2.5:** Evaluation & explanation system
+- ✅ **Phase 2.6:** Documentation & polish (current)
+
+### Phase 3: Optimization & Advanced Features (Planned)
+
+- [ ] Uncertainty quantification for borderline cases
+- [ ] Advanced error analysis and correction
+- [ ] Performance optimization for large datasets
+- [ ] Ensemble methods combining multiple AI models
+- [ ] Active learning for difficult cases
+
+### Phase 4: MedGemma Integration & Production (Planned)
+
 - [ ] Deploy MedGemma locally via Hugging Face
 - [ ] Migrate from Gemini to MedGemma
 - [ ] Benchmark accuracy improvements
 - [ ] Optimize for Mac Metal performance
-
-### Phase 3: Production Features
 - [ ] Multi-modal support (imaging, lab data)
-- [ ] Explainable AI for match decisions
 - [ ] Clinical workflow integration
 - [ ] Privacy and HIPAA compliance
+- [ ] Kaggle competition submission
+
+## Documentation
+
+- **[Matching Module README](src/medmatch/matching/README.md)** - Complete entity resolution system documentation with architecture, usage examples, and API reference
+- **[Evaluation Notebook](notebooks/01_entity_resolution_evaluation.ipynb)** - Interactive analysis of matching performance with visualizations
+- **[Quick Start Guide](docs/quickstart.md)** - 5-minute getting started guide for new users
+- **[Project Context](.claude/CLAUDE.md)** - Detailed development history and design decisions
+- **[Synthetic Data Plan](docs/synthetic_data_plan.md)** - Dataset specification and generation details
 
 ## Important Notes
 

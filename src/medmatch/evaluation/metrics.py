@@ -167,6 +167,16 @@ class MatchEvaluator:
     Loads ground truth from CSV and provides methods to evaluate
     MatchResult objects against it.
 
+    Ground Truth CSV Format:
+        Required columns:
+        - record_id: Unique record identifier
+        - patient_id: Ground truth patient identifier
+        - match_group: Records with same match_group should match
+        - difficulty: Difficulty level (easy/medium/hard/ambiguous)
+
+        Records with the same match_group or patient_id are considered
+        matches. All other pairs are considered non-matches.
+
     Example:
         >>> evaluator = MatchEvaluator("data/synthetic/ground_truth.csv")
         >>> metrics = evaluator.evaluate(results)
@@ -175,6 +185,10 @@ class MatchEvaluator:
         >>> by_difficulty = evaluator.evaluate_by_difficulty(results)
         >>> for diff, m in by_difficulty.items():
         ...     print(f"{diff}: {m.accuracy:.2%}")
+
+        >>> errors = evaluator.find_errors(results)
+        >>> false_positives = [e for e in errors if e.error_type == 'false_positive']
+        >>> print(f"False positives: {len(false_positives)}")
     """
 
     def __init__(self, ground_truth_path: str):

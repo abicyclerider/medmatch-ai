@@ -43,19 +43,43 @@ class MatchExplainer:
     - Error analysis
     - User feedback
 
-    Example:
+    Example (brief mode):
         >>> explainer = MatchExplainer()
-        >>> explanation = explainer.explain(result)
+        >>> explanation = explainer.explain(result, verbose=False)
+        >>> print(explanation)
+
+        PROBABLE MATCH (confidence: 0.87)
+        Records: R0001 ↔ R0002
+        Decision Stage: Feature Scoring
+        Recommendation: These records likely refer to the same patient.
+
+    Example (verbose mode):
+        >>> explanation = explainer.explain(result, verbose=True)
         >>> print(explanation)
 
         PROBABLE MATCH (confidence: 0.87)
         Records: R0001 ↔ R0002
 
-        Decision Stage: scoring
+        Decision Stage: Feature Scoring
 
         Evidence:
-        - name_first: 0.95 (known_variation: William → Bill)
-        - name_last: 1.00 (exact_match)
+          - name_first: 0.95 (known_variation)
+          - name_last: 1.00 (exact_match)
+          - dob: 1.00 (exact_match)
+          - phone: 0.85 (normalized_match)
+          ... and 3 more fields
+
+        Recommendation: These records likely refer to the same patient.
+
+    Example (batch summary):
+        >>> summary = explainer.batch_summary(results)
+        >>> print(summary)
+
+        BATCH MATCHING SUMMARY
+        ----------------------
+        Total Pairs: 437
+        Matches: 388 (88.8%)
+        Non-matches: 49 (11.2%)
         ...
     """
 

@@ -21,6 +21,9 @@ class PatientRecord:
     Combines demographic information with medical history into a single
     comparable entity. This is the primary input for matching algorithms.
 
+    The record can be created from Demographics alone or combined with
+    MedicalRecord for AI-powered medical fingerprinting.
+
     Attributes:
         record_id: Unique identifier for this record
         name_first: First name
@@ -37,10 +40,24 @@ class PatientRecord:
         record_source: System this record came from
         record_date: When this record was created/updated
         data_quality_flag: Quality indicator (clean, typo, etc.)
-        conditions: List of medical conditions
-        medications: List of medications
-        surgeries: List of surgical procedures
-        allergies: List of allergies
+        conditions: List of medical conditions (from MedicalRecord)
+        medications: List of medications (from MedicalRecord)
+        surgeries: List of surgical procedures (from MedicalRecord)
+        allergies: List of allergies (from MedicalRecord)
+
+    Properties:
+        medical_signature: Human-readable medical summary for AI comparison
+            (returns empty string if no medical history available)
+
+    Example:
+        >>> # From demographics only
+        >>> demo = Demographics(record_id="R001", name_first="John", ...)
+        >>> record = PatientRecord.from_demographics(demo)
+        >>>
+        >>> # With medical history
+        >>> medical = MedicalRecord(record_id="R001", ...)
+        >>> record = PatientRecord.from_demographics(demo, medical)
+        >>> print(record.medical_signature)  # AI-readable summary
     """
 
     record_id: str

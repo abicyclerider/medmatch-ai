@@ -135,7 +135,19 @@ class FeatureExtractor:
     """
 
     def __init__(self):
-        """Initialize feature extractor with comparators."""
+        """
+        Initialize feature extractor with comparators.
+
+        Creates instances of all comparators from Phase 2.1 for consistent
+        similarity calculations across the pipeline.
+
+        Comparators:
+            - NameComparator: Handles exact matches, nicknames, typos, soundex
+            - DateComparator: Handles twins, transposed digits, month/day swaps
+            - AddressComparator: Multi-level matching (exact, street+city, zip)
+            - PhoneComparator: Normalized phone number comparison
+            - EmailComparator: Case-insensitive email comparison
+        """
         self.name_comparator = NameComparator()
         self.date_comparator = DateComparator()
         self.address_comparator = AddressComparator()
