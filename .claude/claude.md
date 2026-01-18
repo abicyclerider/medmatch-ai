@@ -174,24 +174,109 @@ python generate_synthetic_data.py --no-ai  # Fast rule-based generation
 python generate_synthetic_data.py --api-rate-limit 5  # With AI (slower)
 ```
 
-### 🎯 Phase 2: Entity Resolution Algorithm (NEXT)
+### 🎯 Phase 2: Entity Resolution Algorithm (IN PROGRESS)
 
 **Goal:** Build AI-powered patient matching system
 
-**Tasks:**
-1. Design matching algorithm architecture
-2. Implement pairwise record comparison
-3. Build confidence scoring system (0-100%)
-4. Add explainable AI (why records match/don't match)
-5. Handle medical terminology (T2DM = Type 2 Diabetes, HTN = Hypertension)
-6. Test against ground truth labels
-7. Measure accuracy on easy/medium/hard cases
-
-**Success criteria:**
+**Overall Success Criteria:**
 - 95%+ accuracy on easy cases
 - 85%+ accuracy on medium cases
 - 70%+ accuracy on hard cases
 - Explainable reasoning for each decision
+
+#### ✅ Phase 2.1: Core Infrastructure (COMPLETED - commit 8036cdf)
+
+**What was built:**
+- Core data models for entity resolution
+- Field comparison functions with fuzzy matching
+- Test suite validating all comparators
+
+**Key files:**
+- `src/medmatch/matching/core.py` - PatientRecord and MatchResult data models
+- `src/medmatch/matching/comparators.py` - Field comparison functions
+  - NameComparator: Exact, nickname variations, typos, soundex (95% similarity for "William"→"Bill")
+  - DateComparator: Twins detection, transposed digits, month/day swap, year typos
+  - AddressComparator: Multi-level matching (exact, street+city, city+state, zip)
+  - PhoneComparator: Normalized phone number matching
+  - EmailComparator: Case-insensitive email matching
+- `test_comparators.py` - Validation test suite (all tests passing ✓)
+- `requirements.txt` - Added jellyfish>=1.0.0 for string similarity
+
+**Architecture:**
+- PatientRecord unifies Demographics + MedicalRecord for matching
+- MatchResult provides structured output (confidence, evidence, explanation)
+- All comparators return (score, method) tuples for explainability
+- Leverages existing name_utils, date_utils from Phase 1
+
+**Validation:**
+✓ All comparator tests passing
+✓ Exact matches, variations, typos handled correctly
+✓ Ready for Phase 2.2
+
+#### 🔨 Phase 2.2: Blocking & Rules (NEXT - in progress)
+
+**Goal:** Fast filtering and deterministic rules for clear cases
+
+**Tasks:**
+1. Implement blocking.py with 5 blocking strategies (reduce O(n²) comparisons)
+2. Implement rules.py with deterministic matching rules
+3. Implement basic matcher.py orchestrator
+4. Test blocking on full dataset (verify ~800-1200 pairs from 33,930)
+5. Test rules on easy difficulty cases (target 95%+ accuracy)
+
+**Blocking strategies:**
+- Soundex(last_name) + birth_year + gender
+- First 3 chars of last_name + DOB
+- Phone number (normalized)
+- SSN_last4 + birth_year + gender
+- MRN exact match
+
+**Deterministic rules:**
+- NO-MATCH: Gender mismatch, large age gap (>5 years) + different name
+- MATCH: Exact match (name+DOB+gender), MRN+name, SSN+name+DOB
+
+#### 📋 Phase 2.3: Feature Scoring (planned)
+
+**Goal:** Weighted confidence scoring for medium difficulty cases
+
+**Tasks:**
+1. Implement features.py - Feature extraction
+2. Implement scoring.py - Confidence calculation
+3. Enhance matcher.py - Integrate scoring
+4. Threshold tuning (0.75, 0.80, 0.85, 0.90)
+5. Test on medium difficulty cases (target 85%+ accuracy)
+
+#### 🧠 Phase 2.4: Medical Fingerprinting (planned)
+
+**Goal:** AI-powered medical history comparison for hard cases
+
+**Tasks:**
+1. Implement medical_fingerprint.py - AI-powered comparison
+2. Complete matcher.py - Full pipeline
+3. Prompt engineering for medical abbreviation understanding
+4. Test on hard/ambiguous cases (target 70%+ accuracy)
+
+#### 📊 Phase 2.5: Evaluation & Explanation (planned)
+
+**Goal:** Comprehensive evaluation and explainability
+
+**Tasks:**
+1. Implement explainer.py - Human-readable explanations
+2. Implement evaluation/metrics.py - Precision, recall, F1 by difficulty
+3. Create evaluation notebook
+4. Generate evaluation report
+5. Meet all success criteria
+
+#### 📝 Phase 2.6: Documentation & Polish (planned)
+
+**Goal:** Production-ready system
+
+**Tasks:**
+1. Comprehensive docstrings
+2. Module README
+3. CLI wrapper (run_matcher.py)
+4. Integration tests
+5. Final evaluation report
 
 ### Phase 3: Evaluation & Optimization
 
@@ -358,7 +443,7 @@ A: Not with API (privacy risk). Need local MedGemma deployment for production.
 
 ---
 
-**Last Updated:** 2026-01-17
-**Current Phase:** Phase 2 - Entity Resolution Algorithm
-**Previous Session:** Synthetic data generation system complete (commit 7d0fc6b)
-**Next Session Should Focus On:** Building the AI-powered patient matching algorithm
+**Last Updated:** 2026-01-18
+**Current Phase:** Phase 2 - Entity Resolution Algorithm (Phase 2.1 Complete)
+**Previous Session:** Phase 2.1 - Core infrastructure complete (commit 8036cdf)
+**Next Session Should Focus On:** Phase 2.2 - Blocking & deterministic rules
