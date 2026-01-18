@@ -213,3 +213,9 @@ data/synthetic/*.json
 
 # Keep the README for documentation
 !data/synthetic/README.md
+
+# CLI output files (can be regenerated with run_matcher.py)
+results.json
+results.csv
+results*.json
+results*.csv
