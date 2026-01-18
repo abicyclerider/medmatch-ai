@@ -256,26 +256,37 @@ class PatientMatcher:
             # Generate explanation
             explanation = self.scorer.explain_score(score, breakdown, features)
 
-            return MatchResult(
-                record_1_id=record1.record_id,
-                record_2_id=record2.record_id,
-                is_match=is_match,
-                confidence=score,
-                match_type=match_type,
-                evidence=evidence,
-                stage="scoring",
-                explanation=explanation,
-            )
+            # Check if we should pass to AI for ambiguous cases
+            # Ambiguous = score between 0.50 and 0.90 (not clearly match or non-match)
+            is_ambiguous = 0.50 <= score <= 0.90
+
+            # If AI is enabled and score is ambiguous, pass to AI stage
+            # Otherwise return the scoring result
+            if not (self.use_ai and is_ambiguous):
+                return MatchResult(
+                    record_1_id=record1.record_id,
+                    record_2_id=record2.record_id,
+                    is_match=is_match,
+                    confidence=score,
+                    match_type=match_type,
+                    evidence=evidence,
+                    stage="scoring",
+                    explanation=explanation,
+                )
+
+            # Fall through to AI stage with pre-computed demographic score
+            demo_score = score
+            demo_breakdown = breakdown
 
         # Phase 2.4: Try AI for ambiguous cases
         if self.use_ai:
-            # First, get demographic score using scoring layer
-            if self.use_scoring:
+            # Get demographic score if not already computed by scoring
+            if not self.use_scoring:
+                # If scoring disabled, compute features just for AI
+                self.feature_extractor = FeatureExtractor()
+                self.scorer = ConfidenceScorer()
                 features = self.feature_extractor.extract(record1, record2)
                 demo_score, demo_breakdown = self.scorer.score(features)
-            else:
-                # If scoring disabled, use simple average
-                demo_score = 0.5
 
             # Only use AI for ambiguous demographic scores (0.50-0.90)
             # Clear matches (>0.90) and clear non-matches (<0.50) don't need AI
