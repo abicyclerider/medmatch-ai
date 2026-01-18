@@ -39,6 +39,15 @@ from .comparators import (
     PhoneComparator,
     EmailComparator,
 )
+# Phase 2.2: Blocking & Rules
+from .blocking import MultiBlocker
+from .rules import RuleEngine
+from .matcher import PatientMatcher
+# Phase 2.3: Feature Scoring
+from .features import FeatureVector, FeatureExtractor
+from .scoring import ScoringWeights, ConfidenceScorer
+# Phase 2.4: AI Medical Fingerprinting
+from .medical_fingerprint import MedicalFingerprintMatcher
 
 __all__ = [
     # Core models
@@ -50,6 +59,15 @@ __all__ = [
     "AddressComparator",
     "PhoneComparator",
     "EmailComparator",
-    # Main matcher (to be added in Phase 2.2+)
-    # "PatientMatcher",
+    # Phase 2.2: Blocking & Rules
+    "MultiBlocker",
+    "RuleEngine",
+    "PatientMatcher",
+    # Phase 2.3: Feature Scoring
+    "FeatureVector",
+    "FeatureExtractor",
+    "ScoringWeights",
+    "ConfidenceScorer",
+    # Phase 2.4: AI Medical Fingerprinting
+    "MedicalFingerprintMatcher",
 ]
