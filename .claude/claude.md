@@ -6,7 +6,7 @@
 **Goal:** Prevent wrong-patient medical errors using AI-powered entity resolution
 **Competition:** Google MedGemma Challenge
 **Developer:** Alex (advanced Python/ML experience)
-**Status:** Phase 2.4 (AI Medical Fingerprinting) COMPLETE - Ready for Phase 2.5 (Evaluation)
+**Status:** Phase 2.5 (Evaluation & Explanation) COMPLETE - Ready for Phase 2.6 (Documentation & Polish)
 
 ## The Problem We're Solving
 
@@ -440,16 +440,75 @@ if result.stage == 'ai':
 ✓ Graceful error handling
 ✓ Ready for Phase 2.5
 
-#### 📊 Phase 2.5: Evaluation & Explanation (planned)
+#### ✅ Phase 2.5: Evaluation & Explanation (COMPLETED - 2026-01-18)
 
 **Goal:** Comprehensive evaluation and explainability
 
-**Tasks:**
-1. Implement explainer.py - Human-readable explanations
-2. Implement evaluation/metrics.py - Precision, recall, F1 by difficulty
-3. Create evaluation notebook
-4. Generate evaluation report
-5. Meet all success criteria
+**Status:** Complete - 33/33 evaluation tests passing, all accuracy targets met
+
+**What was built:**
+
+- Human-readable explanation system for match results
+- Comprehensive evaluation metrics framework
+- Interactive Jupyter notebook for visual analysis
+- Full evaluation report generation
+
+**Key files:**
+
+- `src/medmatch/matching/explainer.py` (320 lines) - Explanation generation
+  - MatchExplainer: Generates human-readable explanations from MatchResult
+  - ExplanationConfig: Configurable verbosity and output options
+  - format_match_for_display(): Convenience function for quick formatting
+  - Brief and verbose explanation modes
+  - Batch summary reports
+- `src/medmatch/evaluation/__init__.py` - Module exports
+- `src/medmatch/evaluation/metrics.py` (380 lines) - Evaluation framework
+  - EvaluationMetrics: Precision, recall, F1, accuracy calculations
+  - MatchEvaluator: Load ground truth and evaluate results
+  - ErrorCase: Detailed error analysis structures
+  - evaluate_by_difficulty(): Breakdown by difficulty level
+  - evaluate_by_stage(): Breakdown by pipeline stage
+  - find_errors(): Identify false positives/negatives
+  - generate_report(): Comprehensive text report
+- `tests/test_evaluation.py` (400 lines) - 33 comprehensive tests
+- `notebooks/01_entity_resolution_evaluation.ipynb` - Interactive notebook
+  - Data loading and PatientRecord conversion
+  - Matcher execution with progress tracking
+  - Visualization: accuracy bar charts, confusion matrix heatmap
+  - Error analysis: FP/FN examination
+  - Stage distribution pie chart
+  - Summary with target achievement status
+
+**Evaluation Results:**
+
+```
+OVERALL METRICS
+---------------
+Total Pairs: 437
+Accuracy:    90.16%
+Precision:   92.43%
+Recall:      96.20%
+F1 Score:    94.27%
+
+TARGET ACHIEVEMENT
+------------------
+Easy:      100.00% (target: 95%) [PASS]
+Medium:    100.00% (target: 85%) [PASS]
+Hard:       88.24% (target: 70%) [PASS]
+Ambiguous:  80.54% (target: 70%) [PASS]
+
+All targets met!
+```
+
+**Validation:**
+✓ All 33 evaluation tests passing
+✓ Easy accuracy: 100% (exceeds 95% target)
+✓ Medium accuracy: 100% (exceeds 85% target)
+✓ Hard accuracy: 88.24% (exceeds 70% target)
+✓ Ambiguous accuracy: 80.54% (exceeds 70% target)
+✓ Explanation generation clear and useful
+✓ Jupyter notebook renders correctly
+✓ Ready for Phase 2.6
 
 #### 📝 Phase 2.6: Documentation & Polish (planned)
 
@@ -634,8 +693,8 @@ This comprehensive 949-line implementation plan covers all of Phase 2 (Phases 2.
 - Phase 2.2: Blocking & Rules (✅ COMPLETE)
 - Phase 2.3: Feature Scoring (✅ COMPLETE - 100% accuracy on medium cases!)
 - Phase 2.4: AI Medical Fingerprinting (✅ COMPLETE - 99.4% accuracy on hard/ambiguous cases!)
-- Phase 2.5: Evaluation & Explanation (NEXT - Jupyter notebook for visual analysis)
-- Phase 2.6: Documentation & Polish (production-ready system)
+- Phase 2.5: Evaluation & Explanation (✅ COMPLETE - All accuracy targets met!)
+- Phase 2.6: Documentation & Polish (NEXT - production-ready system)
 
 **Key Configuration Notes:**
 
@@ -644,95 +703,57 @@ This comprehensive 949-line implementation plan covers all of Phase 2 (Phases 2.
 - All 5 blocking strategies implemented from the start
 - Thorough build with comprehensive tests at each phase
 
-**Next Steps for Phase 2.4 (AI Medical Fingerprinting):**
+**Next Steps for Phase 2.6 (Documentation & Polish):**
 
-The plan specifies creating:
+1. Create `src/medmatch/matching/README.md` - Module documentation
+2. Create `scripts/run_matcher.py` - CLI wrapper for batch matching
+3. Create `tests/test_integration.py` - End-to-end integration tests
+4. Update main `README.md` with Phase 2 completion
+5. Add comprehensive docstrings where missing
 
-1. `src/medmatch/matching/medical_fingerprint.py` - AI-powered medical history comparison
-   - Uses Gemini API with `api_rate_limit=0` (billing enabled)
-   - Compares PatientRecord.medical_signature fields
-   - Returns (similarity_score, reasoning) tuples
-   - Structured prompt engineering for consistency
-2. Enhanced `matcher.py` - Add AI layer to complete pipeline
-   - Runs for ambiguous cases (0.50-0.90 demographic score)
-   - Combines demographic + medical scores (60% demo + 40% medical)
-   - Returns MatchResult with stage='ai', ai_reasoning
-3. `tests/test_medical_fingerprint.py` - Comprehensive tests
-   - Test AI understands medical abbreviations (T2DM, HTN, etc.)
-   - Test medication matching (Lisinopril for HTN)
-   - Test accuracy on hard/ambiguous cases (target 70%+)
-   - Mark with @pytest.mark.api for optional skipping
-
-See the detailed plan file for complete specifications, file structures, and implementation notes.
+See the detailed plan file for complete specifications.
 
 ---
 
 **Last Updated:** 2026-01-18
-**Current Phase:** Phase 2 - Entity Resolution Algorithm (Phase 2.4 Complete)
-**Previous Session:** Phase 2.4 - AI Medical Fingerprinting complete (19/19 tests passing, 99.4% accuracy on hard/ambiguous cases)
-**Next Session Should Focus On:** Phase 2.5 - Evaluation & Explanation (see `/Users/alex/.claude/plans/typed-tinkering-bunny.md` for details)
+**Current Phase:** Phase 2 - Entity Resolution Algorithm (Phase 2.5 Complete)
+**Previous Session:** Phase 2.5 - Evaluation & Explanation complete (33/33 tests passing, all accuracy targets met)
+**Next Session Should Focus On:** Phase 2.6 - Documentation & Polish (see `/Users/alex/.claude/plans/typed-tinkering-bunny.md` for details)
 
-**Files Ready to Commit (Phases 2.2, 2.3, 2.4 combined):**
+**Files Ready to Commit (Phase 2.5):**
 
-Phase 2.2 - Blocking & Rules:
-- `src/medmatch/matching/blocking.py` (261 lines) - NEW: 5 blocking strategies
-- `src/medmatch/matching/rules.py` (336 lines) - NEW: Deterministic matching rules
-- `tests/test_blocking.py` (429 lines) - NEW
-- `tests/test_rules.py` (358 lines) - NEW
+Phase 2.5 - Evaluation & Explanation:
 
-Phase 2.3 - Feature Scoring:
-- `src/medmatch/matching/features.py` (283 lines) - NEW: Feature extraction
-- `src/medmatch/matching/scoring.py` (360 lines) - NEW: Confidence scoring
-- `tests/test_scoring.py` (561 lines) - NEW
-
-Phase 2.4 - AI Medical Fingerprinting:
-- `src/medmatch/matching/medical_fingerprint.py` (250 lines) - NEW: Gemini API integration
-- `tests/test_medical_fingerprint.py` (600+ lines) - NEW
-
-Shared:
-- `src/medmatch/matching/matcher.py` (337 lines) - NEW: Complete 4-stage pipeline
-- `src/medmatch/matching/__init__.py` - UPDATED: All new exports
+- `src/medmatch/matching/explainer.py` (320 lines) - NEW: Human-readable explanations
+- `src/medmatch/evaluation/__init__.py` - NEW: Module exports
+- `src/medmatch/evaluation/metrics.py` (380 lines) - NEW: Evaluation framework
+- `tests/test_evaluation.py` (400 lines) - NEW: 33 comprehensive tests
+- `notebooks/01_entity_resolution_evaluation.ipynb` - NEW: Interactive evaluation
+- `src/medmatch/matching/__init__.py` - UPDATED: Added explainer exports
 - `.claude/CLAUDE.md` - UPDATED
 
 **Test Results (Current):**
-- 55/57 non-API tests passing (96.5%)
-- 2 known test issues (empty gender validation, blocking recall edge case)
-- All core functionality working correctly
 
-**Commit Message Ready:**
+- 73/75 non-API tests passing (97.3%)
+- 33/33 evaluation tests passing (100%)
+- 2 known pre-existing test issues (empty gender validation, blocking recall edge case)
+- All Phase 2.5 functionality working correctly
+
+**Evaluation Results:**
 
 ```text
-Complete Phase 2: Entity Resolution Pipeline (Blocking, Rules, Scoring, AI)
+OVERALL METRICS
+---------------
+Total Pairs: 437
+Accuracy:    90.16%
+Precision:   92.43%
+Recall:      96.20%
+F1 Score:    94.27%
 
-Phase 2.2 - Blocking & Rules:
-- 5 blocking strategies (Soundex, NamePrefix, Phone, SSN, MRN)
-- MultiBlocker combining all strategies (97%+ reduction)
-- Deterministic rules: 2 NO-MATCH, 3 MATCH rules
-- RuleEngine orchestration (NO-MATCH first, then MATCH)
-
-Phase 2.3 - Feature Scoring:
-- FeatureVector with 15+ demographic features
-- FeatureExtractor using Phase 2.1 comparators
-- ScoringWeights with validation (sum to 1.0)
-- ConfidenceScorer with threshold classification
-- Weight redistribution for missing features
-- 100% accuracy on medium difficulty cases
-
-Phase 2.4 - AI Medical Fingerprinting:
-- MedicalFingerprintMatcher using Gemini API
-- Structured prompts for medical abbreviation understanding
-- RateLimiter (optional, disabled with api_rate_limit=0)
-- Robust response parsing with fallback handling
-- 99.4% accuracy on hard/ambiguous cases (exceeds 70% target!)
-
-Complete PatientMatcher Pipeline:
-- Full 4-stage: Blocking → Rules → Scoring → AI
-- AI triggers for ambiguous demographics (0.50-0.90 score)
-- Combined scoring: 60% demographic + 40% medical
-- MatchResult includes confidence, evidence, explanation
-
-Test results: 55/57 passing (96.5%)
-Ready for Phase 2.5 (Evaluation & Explanation)
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+TARGET ACHIEVEMENT
+------------------
+Easy:      100.00% (target: 95%) [PASS]
+Medium:    100.00% (target: 85%) [PASS]
+Hard:       88.24% (target: 70%) [PASS]
+Ambiguous:  80.54% (target: 70%) [PASS]
 ```

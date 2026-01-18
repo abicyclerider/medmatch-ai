@@ -48,6 +48,8 @@ from .features import FeatureVector, FeatureExtractor
 from .scoring import ScoringWeights, ConfidenceScorer
 # Phase 2.4: AI Medical Fingerprinting
 from .medical_fingerprint import MedicalFingerprintMatcher
+# Phase 2.5: Explanation
+from .explainer import MatchExplainer, ExplanationConfig, format_match_for_display
 
 __all__ = [
     # Core models
@@ -70,4 +72,8 @@ __all__ = [
     "ConfidenceScorer",
     # Phase 2.4: AI Medical Fingerprinting
     "MedicalFingerprintMatcher",
+    # Phase 2.5: Explanation
+    "MatchExplainer",
+    "ExplanationConfig",
+    "format_match_for_display",
 ]
