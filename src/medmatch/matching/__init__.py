@@ -50,6 +50,7 @@ from .scoring import ScoringWeights, ConfidenceScorer
 from .ai_client import (
     BaseMedicalAIClient,
     GeminiAIClient,
+    OllamaClient,
     MedGemmaAIClient,
     MedicalAIClient,
 )
@@ -79,6 +80,7 @@ __all__ = [
     # Phase 2.4: AI Medical Fingerprinting
     "BaseMedicalAIClient",
     "GeminiAIClient",
+    "OllamaClient",
     "MedGemmaAIClient",
     "MedicalAIClient",
     "MedicalFingerprintMatcher",

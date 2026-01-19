@@ -8,17 +8,22 @@ layer enables easy switching between backends without code changes.
 Architecture:
     BaseMedicalAIClient (ABC)
     ├── GeminiAIClient      - Google Gemini API implementation
+    ├── OllamaClient        - Local MedGemma via Ollama inference server
     └── MedGemmaAIClient    - Local MedGemma with Hugging Face Transformers
 
 Factory:
-    MedicalAIClient.create(backend="gemini" | "medgemma")
+    MedicalAIClient.create(backend="gemini" | "ollama" | "medgemma")
 
 Example:
     >>> # Use Gemini API
     >>> client = MedicalAIClient.create(backend="gemini")
     >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
 
-    >>> # Use local MedGemma
+    >>> # Use MedGemma via Ollama (recommended for local deployment)
+    >>> client = MedicalAIClient.create(backend="ollama")
+    >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
+
+    >>> # Use MedGemma with Transformers (alternative local approach)
     >>> client = MedicalAIClient.create(backend="medgemma", device="mps")
     >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
 """
@@ -136,8 +141,9 @@ class BaseMedicalAIClient(ABC):
         )
 
         # Generate response (delegated to subclass)
+        # Use 1024 tokens to accommodate MedGemma's thought process
         try:
-            response_text = self.generate_response(prompt, max_tokens=512)
+            response_text = self.generate_response(prompt, max_tokens=1024)
         except Exception as e:
             # Graceful fallback on generation errors
             return 0.5, f"Error during AI generation: {str(e)}"
@@ -380,6 +386,170 @@ class GeminiAIClient(BaseMedicalAIClient):
         return f"Gemini API ({self.model})"
 
 
+class OllamaClient(BaseMedicalAIClient):
+    """
+    Local MedGemma implementation via Ollama inference server.
+
+    Connects to a running Ollama server to use MedGemma without loading
+    the model weights in Python. Ollama handles model management, GPU
+    acceleration, and optimization automatically.
+
+    Prerequisites:
+        1. Ollama installed: brew install ollama
+        2. Ollama service running: brew services start ollama
+        3. MedGemma imported in Ollama: ollama list | grep medgemma
+
+    Example:
+        >>> # Default configuration (localhost:11434, medgemma:1.5-4b)
+        >>> client = OllamaClient()
+        >>> score, reason = client.compare_medical_histories(hist1, hist2)
+
+        >>> # Custom configuration
+        >>> client = OllamaClient(
+        ...     model="medgemma:1.5-4b",
+        ...     base_url="http://localhost:11434",
+        ...     temperature=0.3,
+        ... )
+
+    Attributes:
+        model: Ollama model name (default: "medgemma:1.5-4b")
+        base_url: Ollama server URL (default: "http://localhost:11434")
+        temperature: Sampling temperature (default: 0.3 for factual responses)
+        timeout: Request timeout in seconds (default: 60)
+    """
+
+    def __init__(
+        self,
+        model: str = "medgemma:1.5-4b",
+        base_url: str = "http://localhost:11434",
+        temperature: float = 0.3,
+        timeout: int = 60,
+    ):
+        """
+        Initialize Ollama client.
+
+        Args:
+            model: Ollama model name (e.g., "medgemma:1.5-4b")
+            base_url: Ollama server URL (default: localhost:11434)
+            temperature: Sampling temperature (0.0-1.0, lower = more deterministic)
+            timeout: Request timeout in seconds
+
+        Raises:
+            ImportError: If requests package not installed
+            RuntimeError: If Ollama server is not accessible
+        """
+        self.model = model
+        self.base_url = base_url.rstrip('/')
+        self.temperature = temperature
+        self.timeout = timeout
+        self.initialize_model()
+
+    def initialize_model(self, **kwargs) -> None:
+        """
+        Verify Ollama server is accessible and model is available.
+
+        Raises:
+            ImportError: If requests package not installed
+            RuntimeError: If Ollama server is not running or model not found
+        """
+        try:
+            import requests
+            self._requests = requests
+        except ImportError:
+            raise ImportError(
+                "requests package required for Ollama client. "
+                "Install with: pip install requests"
+            )
+
+        # Verify server is running
+        try:
+            response = self._requests.get(
+                f"{self.base_url}/api/tags",
+                timeout=5,
+            )
+            response.raise_for_status()
+        except self._requests.exceptions.ConnectionError:
+            raise RuntimeError(
+                f"Cannot connect to Ollama server at {self.base_url}. "
+                f"Make sure Ollama is running: brew services start ollama"
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Error connecting to Ollama server: {str(e)}"
+            )
+
+        # Verify model is available
+        try:
+            models = response.json().get("models", [])
+            model_names = [m.get("name", "") for m in models]
+
+            if not any(self.model in name for name in model_names):
+                raise RuntimeError(
+                    f"Model '{self.model}' not found in Ollama. "
+                    f"Available models: {model_names}\n"
+                    f"Import MedGemma with: ollama create {self.model} -f /tmp/medgemma-modelfile\n"
+                    f"See docs/ollama_setup.md for details."
+                )
+        except KeyError:
+            # If we can't verify, just warn and continue
+            print(f"⚠ Could not verify model '{self.model}' availability")
+
+    def generate_response(self, prompt: str, max_tokens: int = 1024) -> str:
+        """
+        Generate response using Ollama API.
+
+        Args:
+            prompt: Input prompt text
+            max_tokens: Maximum tokens to generate (Ollama parameter: num_predict)
+                       Default is 1024 to accommodate MedGemma's thought process
+                       which uses <unused94>thought...<unused95> format
+
+        Returns:
+            Generated text response, with MedGemma thought tokens stripped
+
+        Raises:
+            RuntimeError: If API call fails
+        """
+        try:
+            response = self._requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": self.temperature,
+                        "num_predict": max_tokens,
+                    },
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            response_text = result.get("response", "")
+
+            # MedGemma uses <unused94>thought...<unused95> format
+            # The actual response comes after <unused95>
+            if "<unused95>" in response_text:
+                response_text = response_text.split("<unused95>", 1)[1].strip()
+
+            return response_text
+
+        except self._requests.exceptions.Timeout:
+            raise RuntimeError(
+                f"Ollama request timed out after {self.timeout}s. "
+                f"Try increasing timeout or check server load."
+            )
+        except self._requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Ollama API call failed: {str(e)}")
+
+    @property
+    def backend_name(self) -> str:
+        """Return descriptive backend name for logging."""
+        return f"Ollama ({self.model})"
+
+
 class MedGemmaAIClient(BaseMedicalAIClient):
     """
     Local MedGemma implementation using Hugging Face Transformers.
@@ -577,9 +747,15 @@ class MedicalAIClient:
     Usage:
         >>> # Simple creation
         >>> client = MedicalAIClient.create(backend="gemini")
+        >>> client = MedicalAIClient.create(backend="ollama")
         >>> client = MedicalAIClient.create(backend="medgemma")
 
         >>> # With configuration
+        >>> client = MedicalAIClient.create(
+        ...     backend="ollama",
+        ...     model="medgemma:1.5-4b",
+        ...     temperature=0.3,
+        ... )
         >>> client = MedicalAIClient.create(
         ...     backend="medgemma",
         ...     model="google/medgemma-1.5-4b-it",
@@ -600,13 +776,14 @@ class MedicalAIClient:
         Create an AI client instance.
 
         Args:
-            backend: Backend type ("gemini" or "medgemma")
+            backend: Backend type ("gemini", "ollama", or "medgemma")
             **kwargs: Backend-specific configuration
                 Gemini: model, api_key
+                Ollama: model, base_url, temperature, timeout
                 MedGemma: model, device, use_quantization
 
         Returns:
-            Initialized AI client (GeminiAIClient or MedGemmaAIClient)
+            Initialized AI client (GeminiAIClient, OllamaClient, or MedGemmaAIClient)
 
         Raises:
             ValueError: If backend is unknown
@@ -618,7 +795,13 @@ class MedicalAIClient:
             ...     model="gemini-pro",
             ... )
 
-            >>> # MedGemma with quantization
+            >>> # Ollama (recommended for local)
+            >>> client = MedicalAIClient.create(
+            ...     backend="ollama",
+            ...     model="medgemma:1.5-4b",
+            ... )
+
+            >>> # MedGemma with quantization (alternative local)
             >>> client = MedicalAIClient.create(
             ...     backend="medgemma",
             ...     use_quantization=True,
@@ -628,26 +811,32 @@ class MedicalAIClient:
 
         if backend == "gemini":
             return GeminiAIClient(**kwargs)
+        elif backend == "ollama":
+            return OllamaClient(**kwargs)
         elif backend == "medgemma":
             return MedGemmaAIClient(**kwargs)
         else:
             raise ValueError(
                 f"Unknown backend '{backend}'. "
-                f"Choose 'gemini' or 'medgemma'."
+                f"Choose 'gemini', 'ollama', or 'medgemma'."
             )
 
     @staticmethod
     def create_with_fallback(
-        preferred: str = "medgemma",
-        fallback: str = "gemini",
+        preferred: str = "ollama",
+        fallback: str = "medgemma",
         **kwargs,
     ) -> BaseMedicalAIClient:
         """
         Create client with automatic fallback on failure.
 
         Tries preferred backend first, falls back if initialization fails.
-        Useful for environments where MedGemma may not be available (e.g.,
-        limited RAM, missing model access, no GPU).
+        Useful for environments where Ollama may not be running or model
+        not loaded.
+
+        WARNING: For production with real patient data, ONLY use local-to-local
+        fallback (ollama -> medgemma). NEVER fallback to gemini as it sends
+        data to Google's API (HIPAA violation).
 
         Args:
             preferred: Preferred backend to try first
@@ -658,11 +847,14 @@ class MedicalAIClient:
             Initialized AI client (preferred or fallback)
 
         Example:
-            >>> # Try MedGemma, fallback to Gemini if unavailable
+            >>> # Try Ollama, fallback to Transformers if server unavailable
             >>> client = MedicalAIClient.create_with_fallback(
-            ...     preferred="medgemma",
-            ...     fallback="gemini",
+            ...     preferred="ollama",
+            ...     fallback="medgemma",
             ... )
+
+            >>> # WARNING: Only use local-to-local fallback for production!
+            >>> # NEVER fallback to Gemini API with real patient data (HIPAA violation)
         """
         try:
             return MedicalAIClient.create(backend=preferred, **kwargs)
