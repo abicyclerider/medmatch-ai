@@ -847,3 +847,147 @@ All targets exceeded!
 - Fixed AI pipeline bug where scoring stage always returned, preventing AI from running
 - AI now correctly triggers for ambiguous cases (demographic scores 0.50-0.90)
 - Medical records must be loaded with demographics for AI to work (see notebook cell 5)
+
+---
+
+## Phase 4: Local MedGemma Deployment via Ollama
+
+**Status:** ✅ **Task 2 of 11 COMPLETE** - Ollama installed, MedGemma downloaded and tested
+**Plan Location:** `/Users/alex/.claude/plans/phase4-ollama-integration.md`
+**Started:** 2026-01-19
+
+### Architecture Decision
+
+After evaluating options, we chose **Ollama** as the inference server:
+
+```
+medmatch-ai (this repo) → HTTP API → Ollama (server) → MedGemma 1.5 4B (model)
+```
+
+**Why Ollama:**
+- Production-ready inference server (like Docker for LLMs)
+- Simple HTTP API (OpenAI-compatible)
+- Handles model loading, optimization, GPU acceleration
+- Only requires ~80 line client in our code vs building custom server
+- No separate repo needed - keeps everything manageable
+
+### Completed Tasks
+
+#### ✅ Task 1: Commit Current Work (2026-01-19)
+- **Commit:** 7882945
+- **Files:** ai_client.py (673 lines), medical_fingerprint.py, matcher.py, __init__.py, requirements.txt
+- **Added:** Template method pattern with BaseMedicalAIClient, GeminiAIClient, MedGemmaAIClient
+- **Note:** MedGemmaAIClient (185 lines with Transformers) will be replaced with OllamaClient (~80 lines)
+
+#### ✅ Task 2: Install and Verify Ollama (2026-01-19)
+
+**Installation:**
+- ✅ Installed Ollama 0.14.2 via Homebrew
+- ✅ Started as background service: `brew services start ollama`
+- ✅ Server running on `http://localhost:11434`
+
+**HuggingFace Setup:**
+- ✅ Added HUGGINGFACE_TOKEN to `.env` and `.env.example`
+- ✅ Logged in with read-only token
+- ✅ Token permission: Read (sufficient for downloading gated models)
+
+**MedGemma Download:**
+- ✅ Downloaded from `google/medgemma-1.5-4b-it` (~8GB, took 19 minutes)
+- ✅ Downloaded to: `~/.ollama/models/huggingface/medgemma-1.5-4b-it/`
+- ✅ Files: 2 safetensors (4.6GB + 3.4GB), tokenizer, configs
+
+**Ollama Import:**
+- ✅ Created Modelfile with Gemma chat template
+- ✅ Imported as: `medgemma:1.5-4b`
+- ✅ Model size: 8.6 GB in Ollama
+- ✅ Appears in: `ollama list`
+
+**Testing:**
+- ✅ CLI test: `ollama run medgemma:1.5-4b "What does HTN stand for?"`
+  - Response: Correctly identified "Hypertension"
+  - Inference: ~16 tokens/second on Mac M3 Pro
+  - Load time: ~8 seconds (first time), cached thereafter
+
+- ✅ HTTP API test: `curl http://localhost:11434/api/generate`
+  - Confirmed API accessible and responding
+  - Response format validated
+
+- ✅ Created comprehensive test suite: `test_ollama_medgemma.py`
+  - Test 1: Server connection ✅
+  - Test 2: Model availability ✅
+  - Test 3: Medical abbreviations (HTN, T2DM) ✅
+  - Test 4: Medical record comparison ✅
+  - **Result:** Score 0.9 for matching records (exactly what we need!)
+
+**Performance Verified:**
+- Model loads: 7-8 seconds
+- Inference: 15-16 tokens/second
+- Memory: ~8GB RAM usage
+- Latency: ~1-2s per comparison (meets target)
+
+**Files Added:**
+- `docs/ollama_setup.md` - Complete setup guide (330 lines)
+- `test_ollama_medgemma.py` - Test suite (150 lines)
+
+### Next Tasks (From Plan)
+
+**Task 3: Implement OllamaClient** (~1 hour)
+- Add OllamaClient class to `src/medmatch/matching/ai_client.py`
+- Implement BaseMedicalAIClient interface
+- HTTP client calling Ollama API
+- Parse MedGemma responses (handle `<unused95>` thought tokens)
+- ~80 lines of code
+
+**Task 4: Update matcher.py Integration** (~30 min)
+- Update PatientMatcher to support `ai_backend="ollama"`
+- Update docstrings and examples
+
+**Task 5-11:** Testing, documentation, benchmarks, final commit
+
+### Environment Updates
+
+**New Dependencies Added to `.env`:**
+```bash
+# HuggingFace Access Token for downloading gated models (MedGemma)
+# Get your token from: https://huggingface.co/settings/tokens
+# Required permission: Read
+HUGGINGFACE_TOKEN="hf_..."
+```
+
+**System Services:**
+- Ollama running as background service: `brew services start ollama`
+- Accessible at: `http://localhost:11434`
+
+**Model Storage:**
+- HuggingFace cache: `~/.cache/huggingface/hub/`
+- Ollama models: `~/.ollama/models/`
+- Total disk usage: ~16GB (8GB HF + 8GB Ollama)
+
+### Key Technical Notes
+
+**Ollama vs HuggingFace:**
+- Ollama is the inference SERVER (like Apache for web)
+- MedGemma is the MODEL (like website content)
+- Our code is the CLIENT (like a browser)
+
+**Why Download from HuggingFace First:**
+- MedGemma is a **gated model** requiring approval
+- Can't be redistributed on Ollama's public registry
+- Must download from HF, then import to Ollama via Modelfile
+
+**MedGemma Response Format:**
+- Includes thought process in `<unused94>thought ... <unused95>` tags
+- Actual response follows `<unused95>` marker
+- OllamaClient will need to parse this format
+
+**Multimodal Support (Future):**
+- MedGemma 1.5 supports text, 2D images, 3D CT/MRI, histopathology
+- All three inference servers support multimodal
+- Start with text-only (Phase 4), add images as Phase 5
+
+---
+
+**Last Updated:** 2026-01-19 (Phase 4 Session - Task 2 Complete)
+**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 2/11 complete)
+**This Session:** Installed Ollama, downloaded and imported MedGemma, created test suite, verified medical AI capabilities
+**Next Session:** Implement OllamaClient class (Task 3)
