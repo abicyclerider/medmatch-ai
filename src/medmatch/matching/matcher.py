@@ -66,7 +66,7 @@ class PatientMatcher:
         confidence_threshold: float = 0.85,
         scoring_weights: Optional[any] = None,  # Phase 2.3
         scoring_thresholds: Optional[dict] = None,  # Phase 2.3
-        ai_backend: str = "gemini",  # Phase 2.4: Backend ("gemini" or "medgemma")
+        ai_backend: str = "gemini",  # Phase 2.4: Backend ("gemini" or "ollama")
         ai_client: Optional[any] = None,  # Phase 2.4: Pre-configured AI client
         api_rate_limit: int = 0,  # Phase 2.4 (0 = no rate limiting with billing)
         **ai_kwargs,  # Phase 2.4: Passed to AI client (e.g., model, device)
@@ -82,24 +82,26 @@ class PatientMatcher:
             confidence_threshold: Minimum confidence for match decision (0.0-1.0)
             scoring_weights: Custom scoring weights (Phase 2.3)
             scoring_thresholds: Custom scoring thresholds (Phase 2.3)
-            ai_backend: AI backend ("gemini" or "medgemma", default: "gemini")
+            ai_backend: AI backend ("gemini" or "ollama", default: "gemini")
+                - "gemini": Cloud API (fast, requires internet)
+                - "ollama": Local MedGemma (HIPAA-compliant, recommended for production)
             ai_client: Pre-configured AI client (if None, creates one)
             api_rate_limit: API requests per minute (0=unlimited, Phase 2.4)
-            **ai_kwargs: Passed to AI client (e.g., model, device, use_quantization)
+            **ai_kwargs: Passed to AI client (e.g., model, temperature, timeout)
 
         Example:
-            >>> # Use Gemini (default)
+            >>> # Use Gemini (default, for development/testing)
             >>> matcher = PatientMatcher(use_ai=True)
 
-            >>> # Use MedGemma locally
-            >>> matcher = PatientMatcher(use_ai=True, ai_backend="medgemma")
+            >>> # Use Ollama with MedGemma (recommended for production)
+            >>> matcher = PatientMatcher(use_ai=True, ai_backend="ollama")
 
-            >>> # MedGemma with custom config
+            >>> # Ollama with custom config
             >>> matcher = PatientMatcher(
             ...     use_ai=True,
-            ...     ai_backend="medgemma",
-            ...     device="mps",
-            ...     use_quantization=True,
+            ...     ai_backend="ollama",
+            ...     model="medgemma:1.5-4b",
+            ...     temperature=0.3,
             ... )
         """
         self.use_blocking = use_blocking

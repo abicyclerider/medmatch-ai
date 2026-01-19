@@ -2,29 +2,24 @@
 AI backend abstraction layer for medical history comparison.
 
 This module provides a framework-agnostic interface for medical AI comparison,
-supporting both API-based (Gemini) and local (MedGemma) backends. The abstraction
-layer enables easy switching between backends without code changes.
+supporting both cloud API (Gemini) and local (Ollama/MedGemma) backends. The
+abstraction layer enables easy switching between backends without code changes.
 
 Architecture:
     BaseMedicalAIClient (ABC)
-    ├── GeminiAIClient      - Google Gemini API implementation
-    ├── OllamaClient        - Local MedGemma via Ollama inference server
-    └── MedGemmaAIClient    - Local MedGemma with Hugging Face Transformers
+    ├── GeminiAIClient      - Google Gemini API (cloud, requires internet)
+    └── OllamaClient        - Local MedGemma via Ollama server (HIPAA-compliant)
 
 Factory:
-    MedicalAIClient.create(backend="gemini" | "ollama" | "medgemma")
+    MedicalAIClient.create(backend="gemini" | "ollama")
 
 Example:
-    >>> # Use Gemini API
+    >>> # Use Gemini API (development/testing)
     >>> client = MedicalAIClient.create(backend="gemini")
     >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
 
-    >>> # Use MedGemma via Ollama (recommended for local deployment)
+    >>> # Use MedGemma via Ollama (recommended for production)
     >>> client = MedicalAIClient.create(backend="ollama")
-    >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
-
-    >>> # Use MedGemma with Transformers (alternative local approach)
-    >>> client = MedicalAIClient.create(backend="medgemma", device="mps")
     >>> score, reasoning = client.compare_medical_histories(hist1, hist2)
 """
 
@@ -550,193 +545,6 @@ class OllamaClient(BaseMedicalAIClient):
         return f"Ollama ({self.model})"
 
 
-class MedGemmaAIClient(BaseMedicalAIClient):
-    """
-    Local MedGemma implementation using Hugging Face Transformers.
-
-    Loads and runs google/medgemma-1.5-4b-it locally with optional GPU
-    acceleration (MPS for Mac, CUDA for NVIDIA). Supports 4-bit quantization
-    to reduce memory usage.
-
-    Example:
-        >>> # Auto-detect device (MPS on Mac M1/M2/M3)
-        >>> client = MedGemmaAIClient()
-
-        >>> # Explicit device with quantization
-        >>> client = MedGemmaAIClient(device="mps", use_quantization=True)
-
-    Attributes:
-        model_id: Hugging Face model ID (default: google/medgemma-1.5-4b-it)
-        device: Device to use ("mps", "cuda", "cpu", or None for auto)
-        use_quantization: Whether to use 4-bit quantization
-        model: Loaded Transformers model
-        processor: Tokenizer/processor for the model
-    """
-
-    def __init__(
-        self,
-        model: str = "google/medgemma-1.5-4b-it",
-        device: Optional[str] = None,
-        use_quantization: bool = False,
-    ):
-        """
-        Initialize MedGemma local client.
-
-        Args:
-            model: Hugging Face model ID (default: google/medgemma-1.5-4b-it)
-            device: Device to use ('mps', 'cuda', 'cpu', or None for auto-detect)
-            use_quantization: Use 4-bit quantization (reduces memory ~50%)
-
-        Raises:
-            ImportError: If transformers/torch not installed
-            RuntimeError: If model loading fails
-        """
-        self.model_id = model
-        self.device = device or self._detect_device()
-        self.use_quantization = use_quantization
-        self.model = None
-        self.processor = None
-        self.initialize_model()
-
-    def _detect_device(self) -> str:
-        """
-        Auto-detect best available device.
-
-        Priority: MPS (Mac Metal) > CUDA (NVIDIA) > CPU
-
-        Returns:
-            Device string: "mps", "cuda", or "cpu"
-        """
-        try:
-            import torch
-            if torch.backends.mps.is_available():
-                return "mps"
-            elif torch.cuda.is_available():
-                return "cuda"
-            else:
-                return "cpu"
-        except ImportError:
-            return "cpu"
-
-    def initialize_model(self, **kwargs) -> None:
-        """
-        Load MedGemma model and processor from Hugging Face.
-
-        Downloads model on first run (~8GB), then cached locally.
-        Uses FP16 for MPS (better compatibility), BF16 for CUDA.
-
-        Raises:
-            ImportError: If transformers/torch not installed
-            RuntimeError: If model loading fails (auth, OOM, etc.)
-        """
-        try:
-            import torch
-            from transformers import AutoProcessor, AutoModelForCausalLM
-        except ImportError:
-            raise ImportError(
-                "transformers and torch required for MedGemma. "
-                "Install with: pip install transformers torch accelerate"
-            )
-
-        print(f"Loading {self.model_id} on {self.device}...")
-
-        # Determine dtype (MPS may not fully support bfloat16)
-        if self.device == "mps":
-            dtype = torch.float16  # Safer for Mac Metal
-        else:
-            dtype = torch.bfloat16  # Model's native dtype
-
-        try:
-            # Load processor (tokenizer)
-            self.processor = AutoProcessor.from_pretrained(self.model_id)
-
-            # Load model with optional quantization
-            if self.use_quantization:
-                try:
-                    from transformers import BitsAndBytesConfig
-                    quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        self.model_id,
-                        quantization_config=quantization_config,
-                        device_map="auto",
-                    )
-                except ImportError:
-                    raise ImportError(
-                        "bitsandbytes required for quantization. "
-                        "Install with: pip install bitsandbytes"
-                    )
-            else:
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_id,
-                    torch_dtype=dtype,
-                    device_map="auto",
-                )
-
-            print(f"✓ Model loaded successfully on {self.device}")
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load MedGemma model: {str(e)}\n"
-                f"Make sure you:\n"
-                f"1. Logged in: huggingface-cli login\n"
-                f"2. Accepted model license at: https://huggingface.co/{self.model_id}\n"
-                f"3. Have ~8GB free disk space and 12GB+ RAM"
-            )
-
-    def generate_response(self, prompt: str, max_tokens: int = 512) -> str:
-        """
-        Generate response using local MedGemma model.
-
-        Args:
-            prompt: Input prompt text
-            max_tokens: Maximum tokens to generate
-
-        Returns:
-            Generated text response (excluding input prompt)
-
-        Raises:
-            RuntimeError: If generation fails
-        """
-        try:
-            import torch
-        except ImportError:
-            raise RuntimeError("torch required for generation")
-
-        # Tokenize input
-        inputs = self.processor(
-            prompt,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=4096,  # MedGemma supports up to 128K, but truncate for speed
-        ).to(self.model.device)
-
-        # Generate response
-        with torch.inference_mode():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                do_sample=False,  # Deterministic for reproducibility
-                temperature=0.0,
-            )
-
-        # Decode output (skip input tokens)
-        input_len = inputs["input_ids"].shape[-1]
-        generated_tokens = outputs[0][input_len:]
-        response_text = self.processor.decode(
-            generated_tokens,
-            skip_special_tokens=True,
-        )
-
-        return response_text
-
-    @property
-    def backend_name(self) -> str:
-        """Return descriptive backend name for logging."""
-        quant_str = " (4-bit)" if self.use_quantization else ""
-        return f"MedGemma Local ({self.model_id}, {self.device}{quant_str})"
-
-
 class MedicalAIClient:
     """
     Factory for creating medical AI clients.
@@ -748,25 +556,12 @@ class MedicalAIClient:
         >>> # Simple creation
         >>> client = MedicalAIClient.create(backend="gemini")
         >>> client = MedicalAIClient.create(backend="ollama")
-        >>> client = MedicalAIClient.create(backend="medgemma")
 
         >>> # With configuration
         >>> client = MedicalAIClient.create(
         ...     backend="ollama",
         ...     model="medgemma:1.5-4b",
         ...     temperature=0.3,
-        ... )
-        >>> client = MedicalAIClient.create(
-        ...     backend="medgemma",
-        ...     model="google/medgemma-1.5-4b-it",
-        ...     device="mps",
-        ...     use_quantization=True,
-        ... )
-
-        >>> # With fallback (production-safe)
-        >>> client = MedicalAIClient.create_with_fallback(
-        ...     preferred="medgemma",
-        ...     fallback="gemini",
         ... )
     """
 
@@ -776,35 +571,28 @@ class MedicalAIClient:
         Create an AI client instance.
 
         Args:
-            backend: Backend type ("gemini", "ollama", or "medgemma")
+            backend: Backend type ("gemini" or "ollama")
             **kwargs: Backend-specific configuration
                 Gemini: model, api_key
                 Ollama: model, base_url, temperature, timeout
-                MedGemma: model, device, use_quantization
 
         Returns:
-            Initialized AI client (GeminiAIClient, OllamaClient, or MedGemmaAIClient)
+            Initialized AI client (GeminiAIClient or OllamaClient)
 
         Raises:
             ValueError: If backend is unknown
 
         Example:
-            >>> # Gemini with custom model
+            >>> # Gemini (cloud API)
             >>> client = MedicalAIClient.create(
             ...     backend="gemini",
             ...     model="gemini-pro",
             ... )
 
-            >>> # Ollama (recommended for local)
+            >>> # Ollama (recommended for local/production)
             >>> client = MedicalAIClient.create(
             ...     backend="ollama",
             ...     model="medgemma:1.5-4b",
-            ... )
-
-            >>> # MedGemma with quantization (alternative local)
-            >>> client = MedicalAIClient.create(
-            ...     backend="medgemma",
-            ...     use_quantization=True,
             ... )
         """
         backend = backend.lower()
@@ -813,48 +601,45 @@ class MedicalAIClient:
             return GeminiAIClient(**kwargs)
         elif backend == "ollama":
             return OllamaClient(**kwargs)
-        elif backend == "medgemma":
-            return MedGemmaAIClient(**kwargs)
         else:
             raise ValueError(
                 f"Unknown backend '{backend}'. "
-                f"Choose 'gemini', 'ollama', or 'medgemma'."
+                f"Choose 'gemini' or 'ollama'."
             )
 
     @staticmethod
     def create_with_fallback(
         preferred: str = "ollama",
-        fallback: str = "medgemma",
+        fallback: str = "gemini",
         **kwargs,
     ) -> BaseMedicalAIClient:
         """
         Create client with automatic fallback on failure.
 
         Tries preferred backend first, falls back if initialization fails.
-        Useful for environments where Ollama may not be running or model
-        not loaded.
+        Useful for development environments where Ollama may not be running.
 
-        WARNING: For production with real patient data, ONLY use local-to-local
-        fallback (ollama -> medgemma). NEVER fallback to gemini as it sends
-        data to Google's API (HIPAA violation).
+        WARNING: For production with real patient data, fallback to Gemini
+        is a HIPAA violation (sends data to Google's API). Only use ollama
+        in production, or ensure fallback is never triggered.
 
         Args:
-            preferred: Preferred backend to try first
-            fallback: Fallback backend if preferred fails
+            preferred: Preferred backend to try first (default: "ollama")
+            fallback: Fallback backend if preferred fails (default: "gemini")
             **kwargs: Configuration for preferred backend
 
         Returns:
             Initialized AI client (preferred or fallback)
 
         Example:
-            >>> # Try Ollama, fallback to Transformers if server unavailable
+            >>> # Development: Try Ollama, fallback to Gemini
             >>> client = MedicalAIClient.create_with_fallback(
             ...     preferred="ollama",
-            ...     fallback="medgemma",
+            ...     fallback="gemini",
             ... )
 
-            >>> # WARNING: Only use local-to-local fallback for production!
-            >>> # NEVER fallback to Gemini API with real patient data (HIPAA violation)
+            >>> # WARNING: NEVER use fallback with real patient data!
+            >>> # Production should only use ollama without fallback.
         """
         try:
             return MedicalAIClient.create(backend=preferred, **kwargs)

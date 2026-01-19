@@ -2,9 +2,9 @@
 AI-powered medical history comparison with pluggable backends.
 
 This module provides the MedicalFingerprintMatcher class for comparing
-patient medical histories using AI. Supports multiple backends:
-- Gemini API (default, cloud-based)
-- MedGemma (local, privacy-preserving)
+patient medical histories using AI. Supports two backends:
+- Gemini API (cloud-based, for development/testing)
+- Ollama/MedGemma (local, HIPAA-compliant, for production)
 
 Phase 2.4 of the entity resolution system.
 """
@@ -59,9 +59,9 @@ class MedicalFingerprintMatcher:
     AI-powered medical history comparison with pluggable backends.
 
     Compares two patient records' medical histories to determine if they
-    likely refer to the same person. Supports multiple AI backends:
-    - Gemini API (default): Cloud-based, requires API key
-    - MedGemma: Local inference, privacy-preserving, no API costs
+    likely refer to the same person. Supports two AI backends:
+    - Gemini API: Cloud-based, requires API key (for development/testing)
+    - Ollama: Local MedGemma inference, privacy-preserving, no API costs (for production)
 
     Uses AI to understand:
     - Medical abbreviations (T2DM, HTN, MI, etc.)
@@ -70,12 +70,12 @@ class MedicalFingerprintMatcher:
     - Temporal consistency
 
     Example:
-        >>> # Use Gemini (default)
+        >>> # Use Gemini (default, for development)
         >>> matcher = MedicalFingerprintMatcher()
         >>> score, reason = matcher.compare_medical_histories(record1, record2)
 
-        >>> # Use MedGemma locally
-        >>> matcher = MedicalFingerprintMatcher(ai_backend="medgemma")
+        >>> # Use Ollama/MedGemma locally (recommended for production)
+        >>> matcher = MedicalFingerprintMatcher(ai_backend="ollama")
         >>> score, reason = matcher.compare_medical_histories(record1, record2)
 
     Attributes:
@@ -95,16 +95,16 @@ class MedicalFingerprintMatcher:
 
         Args:
             ai_client: Pre-configured AI client (if None, creates one)
-            ai_backend: Backend to use if ai_client not provided ("gemini" or "medgemma")
+            ai_backend: Backend to use if ai_client not provided ("gemini" or "ollama")
             api_rate_limit: Requests per minute (0=unlimited, recommended for dev)
-            **ai_kwargs: Passed to AI client factory (e.g., model, device, api_key)
+            **ai_kwargs: Passed to AI client factory (e.g., model, temperature, api_key)
 
         Example:
-            >>> # Use Gemini (default)
+            >>> # Use Gemini (default, for development)
             >>> matcher = MedicalFingerprintMatcher()
 
-            >>> # Use MedGemma
-            >>> matcher = MedicalFingerprintMatcher(ai_backend="medgemma")
+            >>> # Use Ollama (recommended for production)
+            >>> matcher = MedicalFingerprintMatcher(ai_backend="ollama")
 
             >>> # Custom Gemini model
             >>> matcher = MedicalFingerprintMatcher(
@@ -113,7 +113,7 @@ class MedicalFingerprintMatcher:
             ... )
 
             >>> # Inject pre-configured client (advanced)
-            >>> client = MedicalAIClient.create(backend="medgemma", device="mps")
+            >>> client = MedicalAIClient.create(backend="ollama")
             >>> matcher = MedicalFingerprintMatcher(ai_client=client)
         """
         # Accept pre-configured client or create new one

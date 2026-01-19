@@ -1,6 +1,6 @@
 # MedMatch AI
 
-An AI-powered medical entity resolution system that prevents wrong-patient errors in healthcare using Google's Gemini/MedGemma models.
+An AI-powered medical entity resolution system that prevents wrong-patient errors in healthcare using AI (Google Gemini API or local MedGemma via Ollama).
 
 ## Problem Statement
 
@@ -13,7 +13,7 @@ Instead of simple demographic matching, we use a hybrid 4-stage pipeline:
 1. **Blocking** - Reduces O(n²) comparisons by 97% using phonetic and key-based strategies
 2. **Deterministic Rules** - Fast exact matching for clear cases (74% of decisions)
 3. **Feature Scoring** - Weighted confidence scores for moderate difficulty cases
-4. **AI Medical Fingerprinting** - Deep medical history comparison using Gemini API
+4. **AI Medical Fingerprinting** - Deep medical history comparison using Gemini API or local MedGemma
 
 The system understands:
 
@@ -27,8 +27,8 @@ The system understands:
 
 ✅ **Phase 1 Complete** - Synthetic data generation system
 ✅ **Phase 2 Complete** - AI-powered entity resolution (94.51% accuracy)
-🚧 **Phase 3 Planned** - Advanced optimization and uncertainty quantification
-📅 **Phase 4 Planned** - MedGemma integration and Kaggle submission
+✅ **Phase 4 In Progress** - Local MedGemma deployment via Ollama (3/11 tasks complete)
+📅 **Phase 3 Planned** - Advanced optimization and uncertainty quantification
 
 ### Current Capabilities
 
@@ -71,7 +71,9 @@ All targets exceeded! See [evaluation notebook](notebooks/01_entity_resolution_e
 
 - **Python 3.12.4** with venv
 - **PyTorch 2.9.1** (Mac Metal/MPS acceleration)
-- **Google Gemini API** (prototyping, will migrate to MedGemma)
+- **AI Backends:**
+  - **Ollama + MedGemma 1.5 4B** (local inference, HIPAA-compliant)
+  - **Google Gemini API** (development/testing)
 - **Data Processing:** pandas, numpy, pydicom
 - **Development:** Jupyter Lab, pytest, black, ruff
 
@@ -90,11 +92,33 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure API Key
+### 3. Configure AI Backend
+
+**Option A: Ollama (Recommended for Production)**
+
+For HIPAA-compliant local inference:
+
+```bash
+# Install Ollama
+brew install ollama
+
+# Start Ollama service
+brew services start ollama
+
+# Download and import MedGemma (see docs/ollama_setup.md for details)
+# Requires HuggingFace token with access to google/medgemma-1.5-4b-it
+```
+
+See [docs/ollama_setup.md](docs/ollama_setup.md) for complete setup instructions.
+
+**Option B: Gemini API (Development/Testing)**
+
 ```bash
 cp .env.example .env
 # Edit .env and add your Google AI API key from https://aistudio.google.com/apikey
 ```
+
+⚠️ **Privacy Warning**: Gemini API sends data to Google's servers. Only use with synthetic/anonymized data. For production with real patient data, use Ollama.
 
 ### 4. Verify Installation
 ```bash
@@ -130,12 +154,22 @@ from datetime import date
 # Load or create patient records
 records = [...]  # Load from CSV or create manually
 
-# Create matcher with all stages enabled
+# Create matcher with Ollama (local MedGemma)
 matcher = PatientMatcher(
     use_blocking=True,
     use_rules=True,
     use_scoring=True,
-    use_ai=True,  # Requires GOOGLE_AI_API_KEY in .env
+    use_ai=True,
+    ai_backend="ollama",  # Local inference (HIPAA-compliant)
+)
+
+# Or use Gemini API (development/testing only)
+matcher = PatientMatcher(
+    use_blocking=True,
+    use_rules=True,
+    use_scoring=True,
+    use_ai=True,
+    ai_backend="gemini",  # Requires GOOGLE_AI_API_KEY in .env
 )
 
 # Match two specific records
@@ -154,11 +188,22 @@ print(f"Found {stats['matches']} matches in {stats['total_pairs']} pairs")
 ### Batch Matching (CLI)
 
 ```bash
+# With Ollama (local MedGemma)
 python scripts/run_matcher.py \
   --demographics data/synthetic/synthetic_demographics.csv \
   --medical-records data/synthetic/synthetic_medical_records.json \
   --output results.json \
   --use-ai \
+  --ai-backend ollama \
+  --progress
+
+# Or with Gemini API (development/testing)
+python scripts/run_matcher.py \
+  --demographics data/synthetic/synthetic_demographics.csv \
+  --medical-records data/synthetic/synthetic_medical_records.json \
+  --output results.json \
+  --use-ai \
+  --ai-backend gemini \
   --progress
 ```
 

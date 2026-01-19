@@ -51,7 +51,6 @@ from .ai_client import (
     BaseMedicalAIClient,
     GeminiAIClient,
     OllamaClient,
-    MedGemmaAIClient,
     MedicalAIClient,
 )
 from .medical_fingerprint import MedicalFingerprintMatcher
@@ -81,7 +80,6 @@ __all__ = [
     "BaseMedicalAIClient",
     "GeminiAIClient",
     "OllamaClient",
-    "MedGemmaAIClient",
     "MedicalAIClient",
     "MedicalFingerprintMatcher",
     # Phase 2.5: Explanation
