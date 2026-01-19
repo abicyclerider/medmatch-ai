@@ -1072,6 +1072,57 @@ score, reasoning = client.compare_medical_histories(hist1, hist2)
 
 **Commit:** 9e20a4d - Phase 4 Task 4: Update matcher.py integration for Ollama backend
 
+#### 🔄 Follow-up: Change Default Backend to Ollama (2026-01-19)
+
+**Goal:** Make Ollama the default AI backend instead of Gemini
+
+**Status:** Complete - All defaults changed, notebook updated
+
+**Changes Made:**
+
+1. **Changed Default Parameters:**
+   - `PatientMatcher`: `ai_backend="ollama"` (was `"gemini"`)
+   - `MedicalFingerprintMatcher`: `ai_backend="ollama"` (was `"gemini"`)
+
+2. **Updated Evaluation Notebook:**
+   - Added clear comments showing both backend options
+   - Default: `ai_backend="ollama"` (local MedGemma)
+   - Alternative: `ai_backend="gemini"` (commented out with instructions)
+   - Updated print statement: "Running with AI enabled (backend: ollama)..."
+
+3. **Updated All Docstrings:**
+   - Reordered examples: Ollama first, Gemini second
+   - Changed language: Ollama = "recommended for production", Gemini = "development/testing only"
+   - Updated all inline comments to reflect new default
+
+**Rationale:**
+- **Privacy First:** Ollama keeps data local (HIPAA-compliant)
+- **Production Ready:** Safe default for real patient data
+- **No API Costs:** Runs completely offline
+- **Explicit Opt-in for Cloud:** Gemini still available but requires explicit choice
+
+**Usage Now:**
+```python
+# Default = Ollama (no backend specified)
+matcher = PatientMatcher(use_ai=True)
+
+# Explicit Gemini (requires opt-in)
+matcher = PatientMatcher(use_ai=True, ai_backend="gemini")
+```
+
+**Files Modified:**
+- `src/medmatch/matching/matcher.py` (default + 3 docstring updates)
+- `src/medmatch/matching/medical_fingerprint.py` (default + 3 docstring updates)
+- `notebooks/01_entity_resolution_evaluation.ipynb` (2 cells updated with clear options)
+
+**Validation:**
+✓ Default backend is now Ollama
+✓ Gemini still accessible via explicit parameter
+✓ Notebook shows both options with clear guidance
+✓ All documentation updated consistently
+
+**Commit:** 36e9a26 - Change default AI backend to Ollama and update notebook
+
 ### Next Tasks (From Plan)
 
 **Task 4: Update matcher.py Integration** (~30 min)
@@ -1124,7 +1175,18 @@ HUGGINGFACE_TOKEN="hf_..."
 
 ---
 
-**Last Updated:** 2026-01-19 (Phase 4 Session - Task 4 Complete)
+**Last Updated:** 2026-01-19 (Phase 4 Session - Task 4 Complete + Default Change)
 **Current Phase:** Phase 4 - Local MedGemma Deployment (Task 4/11 complete - 36%)
-**This Session:** Integrated Ollama with PatientMatcher, removed MedGemmaAIClient, updated all documentation
+**This Session:**
+- Completed Task 4: Integrated Ollama with PatientMatcher
+- Removed MedGemmaAIClient (186 lines, untested Transformers implementation)
+- Changed default AI backend from Gemini to Ollama (privacy-first)
+- Updated evaluation notebook with clear backend options
+- All documentation updated consistently
+
+**Session Commits:**
+- 9e20a4d: Phase 4 Task 4 - Update matcher.py integration for Ollama backend
+- 607ada2: Update claude.md with Task 4 completion
+- 36e9a26: Change default AI backend to Ollama and update notebook
+
 **Next Session:** Task 5 - Update tests and examples for Ollama backend
