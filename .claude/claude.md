@@ -852,9 +852,10 @@ All targets exceeded!
 
 ## Phase 4: Local MedGemma Deployment via Ollama
 
-**Status:** ✅ **Task 2 of 11 COMPLETE** - Ollama installed, MedGemma downloaded and tested
+**Status:** ✅ **Task 3 of 11 COMPLETE** - OllamaClient implemented and tested
 **Plan Location:** `/Users/alex/.claude/plans/phase4-ollama-integration.md`
 **Started:** 2026-01-19
+**Progress:** 27% complete (3/11 tasks)
 
 ### Architecture Decision
 
@@ -929,17 +930,88 @@ medmatch-ai (this repo) → HTTP API → Ollama (server) → MedGemma 1.5 4B (mo
 - `docs/ollama_setup.md` - Complete setup guide (330 lines)
 - `test_ollama_medgemma.py` - Test suite (150 lines)
 
-### Next Tasks (From Plan)
+#### ✅ Task 3: Implement OllamaClient (2026-01-19)
 
-**Task 3: Implement OllamaClient** (~1 hour)
-- Add OllamaClient class to `src/medmatch/matching/ai_client.py`
-- Implement BaseMedicalAIClient interface
-- HTTP client calling Ollama API
-- Parse MedGemma responses (handle `<unused95>` thought tokens)
-- ~80 lines of code
+**Implementation:**
+- ✅ OllamaClient class added to `src/medmatch/matching/ai_client.py` (~150 lines)
+- ✅ Full BaseMedicalAIClient interface implementation
+- ✅ HTTP client using requests library
+- ✅ Server and model availability verification on init
+- ✅ MedGemma thought token parsing (`<unused94>thought...<unused95>`)
+- ✅ Graceful error handling with troubleshooting guidance
+
+**Key Features:**
+
+```python
+# Simple usage
+client = OllamaClient()  # Uses defaults: medgemma:1.5-4b, localhost:11434
+
+# Via factory (recommended)
+client = MedicalAIClient.create(backend="ollama")
+
+# Compare medical histories
+score, reasoning = client.compare_medical_histories(hist1, hist2)
+```
+
+**Configuration:**
+- Default model: `medgemma:1.5-4b`
+- Default temperature: 0.3 (factual medical responses)
+- Default timeout: 60 seconds
+- Default max_tokens: 1024 (accommodates MedGemma thought process)
+- Auto-strips `<unused94>thought...` section from responses
+
+**Token Limit Fix:**
+- Initial implementation: 512 tokens (insufficient, truncated responses)
+- Issue: MedGemma thought process consumed tokens before formatted output
+- Solution: Increased to 1024 tokens in both OllamaClient and base class
+- Result: Now properly outputs full SIMILARITY_SCORE/REASONING format
+
+**Testing:**
+- ✅ `test_ollama_client.py` - Comprehensive test suite (4/4 tests passing)
+  - Initialization test
+  - Medical comparison (matching): Score 0.90 ✓
+  - Factory method test
+  - Medical comparison (different): Score 0.00 ✓
+- ✅ `examples/ollama_demo.py` - Interactive demonstration
+  - Direct instantiation example
+  - Factory method example
+  - Patient names context example
+  - Privacy architecture explanation
+
+**Factory Integration:**
+- ✅ Updated `MedicalAIClient.create()` to support `backend="ollama"`
+- ✅ Updated `MedicalAIClient.create_with_fallback()` defaults (ollama → medgemma)
+- ✅ Added HIPAA warning: NEVER fallback to Gemini with real patient data
+- ✅ Updated module `__init__.py` exports
+
+**Performance Verified:**
+- Matching records: Score 0.9-1.0 ✓
+- Different records: Score 0.0-0.1 ✓
+- Understands medical abbreviations (T2DM, HTN, CAD, etc.) ✓
+- Inference speed: ~1-2 seconds per comparison
+- Memory usage: ~8GB RAM for model
+
+**Privacy Benefits:**
+- All data stays local (HIPAA-compliant)
+- No external API calls
+- Offline capable
+- No per-request costs
+
+**Files Modified:**
+- `src/medmatch/matching/ai_client.py` (+150 lines)
+- `src/medmatch/matching/__init__.py` (+2 lines)
+
+**Files Added:**
+- `test_ollama_client.py` (200 lines)
+- `examples/ollama_demo.py` (150 lines)
+
+**Commit:** ebeb942 - Phase 4 Task 3: Implement OllamaClient for local MedGemma inference
+
+### Next Tasks (From Plan)
 
 **Task 4: Update matcher.py Integration** (~30 min)
 - Update PatientMatcher to support `ai_backend="ollama"`
+- Update medical_fingerprint.py to use factory method
 - Update docstrings and examples
 
 **Task 5-11:** Testing, documentation, benchmarks, final commit
@@ -987,7 +1059,7 @@ HUGGINGFACE_TOKEN="hf_..."
 
 ---
 
-**Last Updated:** 2026-01-19 (Phase 4 Session - Task 2 Complete)
-**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 2/11 complete)
-**This Session:** Installed Ollama, downloaded and imported MedGemma, created test suite, verified medical AI capabilities
-**Next Session:** Implement OllamaClient class (Task 3)
+**Last Updated:** 2026-01-19 (Phase 4 Session - Task 3 Complete)
+**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 3/11 complete - 27%)
+**This Session:** Implemented OllamaClient class, full test suite passing, token limit fix applied
+**Next Session:** Task 4 - Update matcher.py to support ai_backend='ollama'
