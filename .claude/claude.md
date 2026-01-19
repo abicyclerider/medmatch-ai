@@ -1007,6 +1007,71 @@ score, reasoning = client.compare_medical_histories(hist1, hist2)
 
 **Commit:** ebeb942 - Phase 4 Task 3: Implement OllamaClient for local MedGemma inference
 
+#### ✅ Task 4: Update matcher.py Integration (2026-01-19)
+
+**Goal:** Integrate OllamaClient with PatientMatcher pipeline
+
+**Status:** Complete - All documentation updated, tests passing
+
+**What was completed:**
+
+- Removed MedGemmaAIClient class (186 lines) from ai_client.py
+  - Was untested Transformers-based implementation
+  - Replaced by simpler OllamaClient (~150 lines)
+  - Ollama handles model serving, we just make HTTP calls
+- Updated factory method to support only 'gemini' and 'ollama' backends
+  - Removed 'medgemma' backend option
+  - Updated all docstrings and examples
+  - Simplified fallback logic (ollama → gemini for dev, never in production)
+- Updated all module documentation
+  - matcher.py: Updated docstrings with ollama examples
+  - medical_fingerprint.py: Updated docstrings with ollama examples
+  - __init__.py: Removed MedGemmaAIClient export
+  - README.md: Added Ollama setup section, updated usage examples
+
+**Integration Test (test_matcher_ollama.py):**
+
+```python
+# Uses real synthetic data from data/synthetic/
+# Test 1: Create matcher with Ollama backend ✓
+# Test 2: Match same patient (different records) ✓
+#   - Result: 0.94 confidence, definite_match
+#   - Stage: scoring (high demographic match, AI not needed)
+# Test 3: Match different patients ✓
+#   - Result: 0.37 confidence, no_match
+#   - Stage: ai (ambiguous demographics, AI confirms different)
+#   - Medical similarity: 0.00 (AI correctly identified)
+```
+
+**Key Changes:**
+
+- Only 2 backends now: `gemini` (cloud) and `ollama` (local)
+- Documentation emphasizes Ollama for production (HIPAA-compliant)
+- Gemini marked as development/testing only (privacy warning)
+- All examples show both backends with clear use cases
+
+**Files Modified:**
+
+- `src/medmatch/matching/ai_client.py` (-186 lines, cleaned up)
+- `src/medmatch/matching/__init__.py` (removed MedGemmaAIClient)
+- `src/medmatch/matching/matcher.py` (docstring updates)
+- `src/medmatch/matching/medical_fingerprint.py` (docstring updates)
+- `README.md` (Ollama setup section, usage examples)
+
+**Files Added:**
+
+- `test_matcher_ollama.py` (140 lines) - Integration test
+
+**Validation:**
+✓ All 3 integration tests passing
+✓ PatientMatcher works with ai_backend="ollama"
+✓ Scoring stage handles high-confidence matches
+✓ AI stage correctly processes ambiguous cases
+✓ Medical similarity scoring working (0.00 for different patients)
+✓ Documentation complete and accurate
+
+**Commit:** 9e20a4d - Phase 4 Task 4: Update matcher.py integration for Ollama backend
+
 ### Next Tasks (From Plan)
 
 **Task 4: Update matcher.py Integration** (~30 min)
@@ -1059,7 +1124,7 @@ HUGGINGFACE_TOKEN="hf_..."
 
 ---
 
-**Last Updated:** 2026-01-19 (Phase 4 Session - Task 3 Complete)
-**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 3/11 complete - 27%)
-**This Session:** Implemented OllamaClient class, full test suite passing, token limit fix applied
-**Next Session:** Task 4 - Update matcher.py to support ai_backend='ollama'
+**Last Updated:** 2026-01-19 (Phase 4 Session - Task 4 Complete)
+**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 4/11 complete - 36%)
+**This Session:** Integrated Ollama with PatientMatcher, removed MedGemmaAIClient, updated all documentation
+**Next Session:** Task 5 - Update tests and examples for Ollama backend
