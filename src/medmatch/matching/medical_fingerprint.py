@@ -70,12 +70,12 @@ class MedicalFingerprintMatcher:
     - Temporal consistency
 
     Example:
-        >>> # Use Gemini (default, for development)
+        >>> # Use Ollama (default, recommended for production)
         >>> matcher = MedicalFingerprintMatcher()
         >>> score, reason = matcher.compare_medical_histories(record1, record2)
 
-        >>> # Use Ollama/MedGemma locally (recommended for production)
-        >>> matcher = MedicalFingerprintMatcher(ai_backend="ollama")
+        >>> # Use Gemini API (development/testing only)
+        >>> matcher = MedicalFingerprintMatcher(ai_backend="gemini")
         >>> score, reason = matcher.compare_medical_histories(record1, record2)
 
     Attributes:
@@ -86,7 +86,7 @@ class MedicalFingerprintMatcher:
     def __init__(
         self,
         ai_client: Optional[BaseMedicalAIClient] = None,
-        ai_backend: str = "gemini",
+        ai_backend: str = "ollama",
         api_rate_limit: int = 0,  # 0 = no rate limiting (billing enabled)
         **ai_kwargs,
     ):
@@ -95,16 +95,16 @@ class MedicalFingerprintMatcher:
 
         Args:
             ai_client: Pre-configured AI client (if None, creates one)
-            ai_backend: Backend to use if ai_client not provided ("gemini" or "ollama")
+            ai_backend: Backend to use if ai_client not provided ("ollama" or "gemini", default: "ollama")
             api_rate_limit: Requests per minute (0=unlimited, recommended for dev)
             **ai_kwargs: Passed to AI client factory (e.g., model, temperature, api_key)
 
         Example:
-            >>> # Use Gemini (default, for development)
+            >>> # Use Ollama (default, recommended for production)
             >>> matcher = MedicalFingerprintMatcher()
 
-            >>> # Use Ollama (recommended for production)
-            >>> matcher = MedicalFingerprintMatcher(ai_backend="ollama")
+            >>> # Use Gemini API (development/testing only)
+            >>> matcher = MedicalFingerprintMatcher(ai_backend="gemini")
 
             >>> # Custom Gemini model
             >>> matcher = MedicalFingerprintMatcher(

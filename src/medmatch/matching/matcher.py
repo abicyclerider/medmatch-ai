@@ -66,7 +66,7 @@ class PatientMatcher:
         confidence_threshold: float = 0.85,
         scoring_weights: Optional[any] = None,  # Phase 2.3
         scoring_thresholds: Optional[dict] = None,  # Phase 2.3
-        ai_backend: str = "gemini",  # Phase 2.4: Backend ("gemini" or "ollama")
+        ai_backend: str = "ollama",  # Phase 2.4: Backend ("ollama" or "gemini")
         ai_client: Optional[any] = None,  # Phase 2.4: Pre-configured AI client
         api_rate_limit: int = 0,  # Phase 2.4 (0 = no rate limiting with billing)
         **ai_kwargs,  # Phase 2.4: Passed to AI client (e.g., model, device)
@@ -82,19 +82,19 @@ class PatientMatcher:
             confidence_threshold: Minimum confidence for match decision (0.0-1.0)
             scoring_weights: Custom scoring weights (Phase 2.3)
             scoring_thresholds: Custom scoring thresholds (Phase 2.3)
-            ai_backend: AI backend ("gemini" or "ollama", default: "gemini")
-                - "gemini": Cloud API (fast, requires internet)
+            ai_backend: AI backend ("ollama" or "gemini", default: "ollama")
                 - "ollama": Local MedGemma (HIPAA-compliant, recommended for production)
+                - "gemini": Cloud API (fast, requires internet, development/testing only)
             ai_client: Pre-configured AI client (if None, creates one)
             api_rate_limit: API requests per minute (0=unlimited, Phase 2.4)
             **ai_kwargs: Passed to AI client (e.g., model, temperature, timeout)
 
         Example:
-            >>> # Use Gemini (default, for development/testing)
+            >>> # Use Ollama (default, recommended for production)
             >>> matcher = PatientMatcher(use_ai=True)
 
-            >>> # Use Ollama with MedGemma (recommended for production)
-            >>> matcher = PatientMatcher(use_ai=True, ai_backend="ollama")
+            >>> # Use Gemini API (development/testing only)
+            >>> matcher = PatientMatcher(use_ai=True, ai_backend="gemini")
 
             >>> # Ollama with custom config
             >>> matcher = PatientMatcher(
