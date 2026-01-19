@@ -2,10 +2,17 @@
 torch>=2.1.0
 torchvision>=0.16.0
 
-# Google AI SDKs for MedGemma access
+# Google AI SDKs for Gemini API
 # Note: google-generativeai is deprecated, using google-genai instead
 google-genai>=0.2.0
 google-generativeai>=0.3.0  # Deprecated but may be needed for legacy code
+
+# Hugging Face Ecosystem for local MedGemma
+transformers>=4.50.0  # MedGemma support (Gemma 3 architecture)
+accelerate>=0.20.0  # device_map="auto" support for efficient loading
+huggingface-hub>=0.20.0  # Model download and authentication
+sentencepiece>=0.1.99  # Tokenization (required by Gemma)
+bitsandbytes>=0.41.0  # Optional: 4-bit quantization for memory reduction
 
 # Data Processing
 pandas>=2.1.0

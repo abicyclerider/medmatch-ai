@@ -1,21 +1,20 @@
 """
-AI-powered medical history comparison using Gemini API.
+AI-powered medical history comparison with pluggable backends.
 
 This module provides the MedicalFingerprintMatcher class for comparing
-patient medical histories using AI. It's designed for hard/ambiguous cases
-where demographic comparison alone is insufficient.
+patient medical histories using AI. Supports multiple backends:
+- Gemini API (default, cloud-based)
+- MedGemma (local, privacy-preserving)
 
 Phase 2.4 of the entity resolution system.
 """
 
-import os
 import time
-import re
 from typing import Optional, Tuple
 from dataclasses import dataclass
-from dotenv import load_dotenv
 
 from .core import PatientRecord
+from .ai_client import BaseMedicalAIClient, MedicalAIClient
 
 
 @dataclass
@@ -57,70 +56,80 @@ class RateLimiter:
 
 class MedicalFingerprintMatcher:
     """
-    AI-powered medical history comparison using Gemini API.
+    AI-powered medical history comparison with pluggable backends.
 
     Compares two patient records' medical histories to determine if they
-    likely refer to the same person. Uses AI to understand:
+    likely refer to the same person. Supports multiple AI backends:
+    - Gemini API (default): Cloud-based, requires API key
+    - MedGemma: Local inference, privacy-preserving, no API costs
+
+    Uses AI to understand:
     - Medical abbreviations (T2DM, HTN, MI, etc.)
     - Medication equivalents (Lisinopril for hypertension)
     - Condition progressions and relationships
     - Temporal consistency
 
     Example:
+        >>> # Use Gemini (default)
         >>> matcher = MedicalFingerprintMatcher()
-        >>> score, reasoning = matcher.compare_medical_histories(record1, record2)
-        >>> print(f"Medical similarity: {score:.2f}")
-        >>> print(f"Reasoning: {reasoning}")
+        >>> score, reason = matcher.compare_medical_histories(record1, record2)
+
+        >>> # Use MedGemma locally
+        >>> matcher = MedicalFingerprintMatcher(ai_backend="medgemma")
+        >>> score, reason = matcher.compare_medical_histories(record1, record2)
 
     Attributes:
-        model: Name of the Gemini model to use
+        ai_client: Backend AI client (Gemini or MedGemma)
         rate_limiter: Optional rate limiter for API calls
-        client: Google AI client instance
     """
 
     def __init__(
         self,
-        model: str = "gemini-2.5-flash",
+        ai_client: Optional[BaseMedicalAIClient] = None,
+        ai_backend: str = "gemini",
         api_rate_limit: int = 0,  # 0 = no rate limiting (billing enabled)
-        api_key: Optional[str] = None,
+        **ai_kwargs,
     ):
         """
         Initialize the medical fingerprint matcher.
 
         Args:
-            model: Gemini model name (default: gemini-2.5-flash)
+            ai_client: Pre-configured AI client (if None, creates one)
+            ai_backend: Backend to use if ai_client not provided ("gemini" or "medgemma")
             api_rate_limit: Requests per minute (0=unlimited, recommended for dev)
-            api_key: Optional API key (defaults to GOOGLE_AI_API_KEY env var)
+            **ai_kwargs: Passed to AI client factory (e.g., model, device, api_key)
 
-        Raises:
-            ValueError: If API key is not found
-            ImportError: If google-genai package is not installed
+        Example:
+            >>> # Use Gemini (default)
+            >>> matcher = MedicalFingerprintMatcher()
+
+            >>> # Use MedGemma
+            >>> matcher = MedicalFingerprintMatcher(ai_backend="medgemma")
+
+            >>> # Custom Gemini model
+            >>> matcher = MedicalFingerprintMatcher(
+            ...     ai_backend="gemini",
+            ...     model="gemini-pro",
+            ... )
+
+            >>> # Inject pre-configured client (advanced)
+            >>> client = MedicalAIClient.create(backend="medgemma", device="mps")
+            >>> matcher = MedicalFingerprintMatcher(ai_client=client)
         """
-        self.model = model
-        self.rate_limiter = RateLimiter(requests_per_minute=api_rate_limit)
-
-        # Load API key
-        load_dotenv()
-        # Use provided key, or fall back to env var
-        # Empty string should be treated as missing
-        self.api_key = api_key if api_key else os.getenv('GOOGLE_AI_API_KEY')
-
-        if not self.api_key:
-            raise ValueError(
-                "GOOGLE_AI_API_KEY not found. "
-                "Set it in .env file or pass api_key parameter."
+        # Accept pre-configured client or create new one
+        if ai_client is not None:
+            self.ai_client = ai_client
+        else:
+            self.ai_client = MedicalAIClient.create(
+                backend=ai_backend,
+                **ai_kwargs,
             )
 
-        # Initialize Google AI client
-        try:
-            import google.genai as genai
-            self.client = genai.Client(api_key=self.api_key)
-            self._genai = genai  # Keep reference for types
-        except ImportError:
-            raise ImportError(
-                "google-genai package not installed. "
-                "Install with: pip install google-genai"
-            )
+        # Rate limiting (works with any backend)
+        if api_rate_limit > 0:
+            self.rate_limiter = RateLimiter(requests_per_minute=api_rate_limit)
+        else:
+            self.rate_limiter = None
 
     def compare_medical_histories(
         self,
@@ -130,9 +139,9 @@ class MedicalFingerprintMatcher:
         """
         Compare medical histories of two patient records using AI.
 
-        Uses Gemini to analyze medical signatures and determine similarity.
-        Returns a score and reasoning that can be used to augment demographic
-        matching for hard/ambiguous cases.
+        Uses configured backend (Gemini or MedGemma) to analyze medical
+        signatures and determine similarity. Returns a score and reasoning
+        that can be used to augment demographic matching for hard/ambiguous cases.
 
         Args:
             record1: First patient record
@@ -159,155 +168,17 @@ class MedicalFingerprintMatcher:
         if med_sig_1 == "No medical history available" or med_sig_2 == "No medical history available":
             return 0.5, "One record has no medical history - cannot make comparison."
 
-        # Build structured prompt
-        prompt = self._build_comparison_prompt(
-            record1.full_name, med_sig_1,
-            record2.full_name, med_sig_2,
+        # Wait for rate limiter if needed (works with any backend)
+        if self.rate_limiter:
+            self.rate_limiter.wait_if_needed()
+
+        # Delegate to AI client (handles prompt building, generation, parsing)
+        score, reasoning = self.ai_client.compare_medical_histories(
+            medical_history_1=med_sig_1,
+            medical_history_2=med_sig_2,
+            patient_name_1=record1.full_name,
+            patient_name_2=record2.full_name,
         )
-
-        # Wait for rate limiter if needed
-        self.rate_limiter.wait_if_needed()
-
-        try:
-            # Call Gemini API
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-            )
-
-            # Parse response
-            score, reasoning = self._parse_response(response.text)
-            return score, reasoning
-
-        except Exception as e:
-            # Graceful fallback on API error
-            error_msg = f"API error: {str(e)}"
-            return 0.0, error_msg
-
-    def _build_comparison_prompt(
-        self,
-        name1: str,
-        med_sig_1: str,
-        name2: str,
-        med_sig_2: str,
-    ) -> str:
-        """
-        Build structured prompt for medical history comparison.
-
-        Args:
-            name1: Name from first record
-            med_sig_1: Medical signature from first record
-            name2: Name from second record
-            med_sig_2: Medical signature from second record
-
-        Returns:
-            Formatted prompt string
-        """
-        return f"""You are a medical entity resolution expert. Your task is to compare two medical histories and determine how similar they are.
-
-**IMPORTANT CONSIDERATIONS:**
-1. Medical abbreviations are equivalent to full names:
-   - T2DM = Type 2 Diabetes Mellitus = Diabetes Type 2
-   - HTN = Hypertension = High Blood Pressure
-   - MI = Myocardial Infarction = Heart Attack
-   - CAD = Coronary Artery Disease
-   - CHF = Congestive Heart Failure
-   - COPD = Chronic Obstructive Pulmonary Disease
-   - GERD = Gastroesophageal Reflux Disease
-   - DM = Diabetes Mellitus
-
-2. Medications often indicate conditions:
-   - Metformin → Diabetes
-   - Lisinopril, Losartan, Amlodipine → Hypertension
-   - Atorvastatin, Simvastatin, Rosuvastatin → Hyperlipidemia
-   - Metoprolol, Carvedilol → Heart conditions
-   - Sertraline, Fluoxetine → Depression/Anxiety
-   - Albuterol, Fluticasone → Asthma/COPD
-
-3. Consider:
-   - Overlapping conditions (even with different wording)
-   - Medication overlap (same drug class)
-   - Temporal consistency (conditions don't disappear)
-   - Disease progressions (diabetes + kidney disease makes sense)
-
-**PATIENT 1:** {name1}
-**Medical History:** {med_sig_1}
-
-**PATIENT 2:** {name2}
-**Medical History:** {med_sig_2}
-
-**RESPOND IN THIS EXACT FORMAT:**
-SIMILARITY_SCORE: [a decimal between 0.0 and 1.0]
-REASONING: [Your explanation in 1-3 sentences]
-
-**SCORING GUIDE:**
-- 1.0: Identical or near-identical histories (same conditions, same meds)
-- 0.8-0.9: Very similar (equivalent abbreviations/synonyms, matching medications)
-- 0.6-0.7: Similar (some overlap in conditions or related medications)
-- 0.4-0.5: Some overlap (1-2 shared conditions or medication classes)
-- 0.2-0.3: Minimal overlap (possibly one shared common condition)
-- 0.0-0.1: Different medical profiles (no meaningful overlap)
-
-Provide your analysis:"""
-
-    def _parse_response(self, response_text: str) -> Tuple[float, str]:
-        """
-        Parse AI response to extract score and reasoning.
-
-        Handles variations in AI response format robustly.
-
-        Args:
-            response_text: Raw text response from Gemini
-
-        Returns:
-            Tuple of (score, reasoning)
-        """
-        # Default values if parsing fails
-        score = 0.5
-        reasoning = "Unable to parse AI response"
-
-        lines = response_text.strip().split('\n')
-
-        for line in lines:
-            line = line.strip()
-
-            # Extract score
-            if line.upper().startswith('SIMILARITY_SCORE:'):
-                try:
-                    score_str = line.split(':', 1)[1].strip()
-                    # Handle various formats: "0.8", "0.80", "80%", etc.
-                    score_str = score_str.replace('%', '').strip()
-                    parsed_score = float(score_str)
-                    # Convert percentage to decimal if needed
-                    if parsed_score > 1.0:
-                        parsed_score = parsed_score / 100.0
-                    # Clamp to valid range
-                    score = max(0.0, min(1.0, parsed_score))
-                except (ValueError, IndexError):
-                    pass
-
-            # Extract reasoning
-            elif line.upper().startswith('REASONING:'):
-                try:
-                    reasoning = line.split(':', 1)[1].strip()
-                except IndexError:
-                    pass
-
-        # If reasoning spans multiple lines (AI sometimes does this)
-        if reasoning == "Unable to parse AI response":
-            # Try to find any substantial text after SIMILARITY_SCORE
-            found_score = False
-            reasoning_parts = []
-            for line in lines:
-                if 'SIMILARITY_SCORE' in line.upper():
-                    found_score = True
-                    continue
-                if found_score and line.strip() and not line.upper().startswith('REASONING:'):
-                    reasoning_parts.append(line.strip())
-                elif line.upper().startswith('REASONING:'):
-                    reasoning_parts.append(line.split(':', 1)[1].strip())
-            if reasoning_parts:
-                reasoning = ' '.join(reasoning_parts)
 
         return score, reasoning
 

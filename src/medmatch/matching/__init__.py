@@ -47,6 +47,12 @@ from .matcher import PatientMatcher
 from .features import FeatureVector, FeatureExtractor
 from .scoring import ScoringWeights, ConfidenceScorer
 # Phase 2.4: AI Medical Fingerprinting
+from .ai_client import (
+    BaseMedicalAIClient,
+    GeminiAIClient,
+    MedGemmaAIClient,
+    MedicalAIClient,
+)
 from .medical_fingerprint import MedicalFingerprintMatcher
 # Phase 2.5: Explanation
 from .explainer import MatchExplainer, ExplanationConfig, format_match_for_display
@@ -71,6 +77,10 @@ __all__ = [
     "ScoringWeights",
     "ConfidenceScorer",
     # Phase 2.4: AI Medical Fingerprinting
+    "BaseMedicalAIClient",
+    "GeminiAIClient",
+    "MedGemmaAIClient",
+    "MedicalAIClient",
     "MedicalFingerprintMatcher",
     # Phase 2.5: Explanation
     "MatchExplainer",

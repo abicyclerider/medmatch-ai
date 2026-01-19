@@ -66,8 +66,10 @@ class PatientMatcher:
         confidence_threshold: float = 0.85,
         scoring_weights: Optional[any] = None,  # Phase 2.3
         scoring_thresholds: Optional[dict] = None,  # Phase 2.3
-        ai_model: str = "gemini-2.5-flash",  # Phase 2.4
+        ai_backend: str = "gemini",  # Phase 2.4: Backend ("gemini" or "medgemma")
+        ai_client: Optional[any] = None,  # Phase 2.4: Pre-configured AI client
         api_rate_limit: int = 0,  # Phase 2.4 (0 = no rate limiting with billing)
+        **ai_kwargs,  # Phase 2.4: Passed to AI client (e.g., model, device)
     ):
         """
         Initialize patient matcher.
@@ -80,8 +82,25 @@ class PatientMatcher:
             confidence_threshold: Minimum confidence for match decision (0.0-1.0)
             scoring_weights: Custom scoring weights (Phase 2.3)
             scoring_thresholds: Custom scoring thresholds (Phase 2.3)
-            ai_model: AI model name for medical fingerprinting (Phase 2.4)
+            ai_backend: AI backend ("gemini" or "medgemma", default: "gemini")
+            ai_client: Pre-configured AI client (if None, creates one)
             api_rate_limit: API requests per minute (0=unlimited, Phase 2.4)
+            **ai_kwargs: Passed to AI client (e.g., model, device, use_quantization)
+
+        Example:
+            >>> # Use Gemini (default)
+            >>> matcher = PatientMatcher(use_ai=True)
+
+            >>> # Use MedGemma locally
+            >>> matcher = PatientMatcher(use_ai=True, ai_backend="medgemma")
+
+            >>> # MedGemma with custom config
+            >>> matcher = PatientMatcher(
+            ...     use_ai=True,
+            ...     ai_backend="medgemma",
+            ...     device="mps",
+            ...     use_quantization=True,
+            ... )
         """
         self.use_blocking = use_blocking
         self.use_rules = use_rules
@@ -120,12 +139,13 @@ class PatientMatcher:
             self.scorer = ConfidenceScorer(weights=weights, **threshold_kwargs)
 
         # Initialize AI (Phase 2.4)
-        self.ai_model = ai_model
         self.api_rate_limit = api_rate_limit
         if use_ai:
             self.medical_matcher = MedicalFingerprintMatcher(
-                model=ai_model,
+                ai_client=ai_client,
+                ai_backend=ai_backend,
                 api_rate_limit=api_rate_limit,
+                **ai_kwargs,
             )
 
     def match_datasets(
