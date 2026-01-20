@@ -1,0 +1,110 @@
+# MedGemma Inference Speed Optimization Benchmark
+# Date: 2026-01-20
+# Model: medgemma:1.5-4b-q4 (quantized, 2.5GB)
+# Hardware: Mac M3 Pro
+
+## Summary Table
+
+| Mode     | Avg Time  | Throughput    | Accuracy | Speedup |
+|----------|-----------|---------------|----------|---------|
+| standard | 19.85s    | 3.0/min       | 80%      | 1.0x    |
+| batched  | 7.37s     | 8.1/min       | TBD*     | 2.7x    |
+
+* Batched mode accuracy requires different evaluation approach (batch output parsing)
+
+## Key Findings
+
+### 1. MedGemma Thought Process is the Bottleneck
+
+MedGemma uses internal "thought tokens" (<unused94>...reasoning...<unused95>) that consume
+most of the output tokens. Even with a simplified prompt, the model generates 500-1000 tokens
+of reasoning before outputting the actual score.
+
+- Simplified prompt alone does NOT improve speed significantly
+- Must allocate 1024+ tokens for model to complete thought process
+- Token reduction strategies don't work well with MedGemma
+
+### 2. Batching is the Most Effective Optimization
+
+By processing multiple comparisons in a single request, we amortize the thought process
+overhead across multiple pairs:
+
+- 3 pairs in one request: ~22s total = 7.3s per pair
+- 1 pair per request: ~20s per request
+- **Speedup: 2.7x faster**
+
+### 3. Parallel Requests Have Limited Benefit
+
+Parallel requests with 2 workers achieved:
+- 1.84x speedup in wall-clock time
+- But each individual request still takes ~20s
+- Model struggles with 4+ concurrent requests (timeouts)
+
+### 4. Ollama Environment Variables
+
+Tested variables (may provide marginal improvements):
+- OLLAMA_KV_CACHE_TYPE=q8_0 (KV cache quantization)
+- OLLAMA_FLASH_ATTENTION=1 (faster attention)
+- OLLAMA_KEEP_ALIVE=24h (keep model loaded)
+- OLLAMA_NUM_PARALLEL=2 (enable 2 parallel requests)
+
+Impact: Difficult to measure precisely, estimated 10-20% improvement.
+
+## Recommendations
+
+### For Production Use
+
+1. **Use Batched Mode** - Process 3-5 comparisons per request
+   - Best throughput: 8+ comparisons/minute
+   - Implement batch queuing system
+
+2. **Maintain Model Keep-Alive** - Avoid model reload overhead
+   - Set OLLAMA_KEEP_ALIVE=24h or higher
+
+3. **Limit Parallel Workers** - Don't exceed 2 concurrent requests
+   - More workers cause timeouts and instability
+
+### For Real-Time Use (if ~7s latency acceptable)
+
+- Use batched mode with batch_size=3
+- Pre-warm model before user requests
+- Consider caching results for repeated comparisons
+
+### For Lower Latency Requirements
+
+Consider alternatives:
+- Use embedding-based similarity (sub-second)
+- Use smaller non-MedGemma model without thought tokens
+- Implement hybrid: embeddings for clear cases, LLM for ambiguous only
+
+## Benchmark Commands
+
+# Standard mode (baseline)
+python scripts/benchmark_medgemma_quantization.py --mode standard --iterations 5
+
+# Batched mode (recommended)
+python scripts/benchmark_medgemma_quantization.py --mode batched --iterations 9 --batch-size 3
+
+# Parallel mode
+python scripts/benchmark_medgemma_quantization.py --mode parallel --iterations 6 --workers 2
+
+## Raw Results
+
+### Standard Mode (3 iterations)
+- Warmup: 27.16s
+- Average: 19.85s per comparison
+- Min: 16.29s, Max: 25.16s
+- Throughput: 3.0/min
+- Accuracy: 80% (4/5 tests)
+
+### Batched Mode (9 iterations, batch_size=3)
+- Warmup: 15.82s
+- Total: 66.32s for 9 comparisons
+- Average: 7.37s per comparison
+- Throughput: 8.1/min
+
+### Parallel Mode (6 iterations, 2 workers)
+- Wall time: 103.42s for 6 comparisons
+- Average per-request: 31.76s
+- Throughput: 3.5/min
+- Speedup: 1.84x
