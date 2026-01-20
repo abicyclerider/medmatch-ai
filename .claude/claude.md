@@ -1265,24 +1265,100 @@ HUGGINGFACE_TOKEN="hf_..."
 - All three inference servers support multimodal
 - Start with text-only (Phase 4), add images as Phase 5
 
+#### ✅ Task 6: Inference Speed Optimization (2026-01-20)
+
+**Goal:** Speed up AI-assisted matching from ~19s to faster alternatives
+
+**Status:** Complete - Batched mode achieves 2.7x speedup
+
+**What was built:**
+
+- **BatchedOllamaClient**: Process multiple comparisons in single request
+- **SimplifiedOllamaClient**: Proper MedGemma thought token parsing
+- **Parallel request support**: ThreadPoolExecutor with configurable workers
+- **4 benchmark modes**: standard, optimized, parallel, batched
+
+**Key Discovery: MedGemma Thought Tokens are the Bottleneck**
+
+MedGemma uses internal "thought tokens" (`<unused94>...reasoning...<unused95>`) that consume
+500-1000 tokens of reasoning before outputting the actual score. Simplified prompts do NOT
+improve speed because the model still generates full thought process internally.
+
+**Solution: Batching**
+
+By processing multiple comparisons in a single request, we amortize the thought process
+overhead across multiple pairs:
+
+```
+Standard: 19.85s per comparison, 3.0/min throughput
+Batched:  7.37s per comparison, 8.1/min throughput (2.7x faster)
+```
+
+**Benchmark Results (Mac M3 Pro):**
+
+| Mode     | Avg Time  | Throughput | Speedup |
+|----------|-----------|------------|---------|
+| standard | 19.85s    | 3.0/min    | 1.0x    |
+| batched  | 7.37s     | 8.1/min    | 2.7x    |
+| parallel | 31.76s*   | 3.5/min    | 1.17x   |
+
+*parallel shows per-request time; throughput gain from concurrency
+
+**Ollama Environment Variables Added:**
+```bash
+OLLAMA_KV_CACHE_TYPE=q8_0      # KV cache quantization (20-30% speedup)
+OLLAMA_FLASH_ATTENTION=1       # Faster attention (10-15% speedup)
+OLLAMA_KEEP_ALIVE=24h          # Keep model loaded (saves 8s load time)
+OLLAMA_NUM_PARALLEL=2          # Enable parallel requests (max 2 stable)
+```
+
+**Files Modified:**
+- `scripts/benchmark_medgemma_quantization.py` (+557 lines) - Added 3 client classes, 4 modes
+- `docs/ollama_setup.md` (+87 lines) - Performance Tuning section
+- `.env.example` (+9 lines) - OLLAMA_* environment variables
+
+**Files Added:**
+- `data/benchmark_output.txt` - Full benchmark results and recommendations
+
+**Benchmark Commands:**
+```bash
+# Fastest mode (recommended)
+python scripts/benchmark_medgemma_quantization.py --mode batched --iterations 9 --batch-size 3
+
+# Standard baseline
+python scripts/benchmark_medgemma_quantization.py --mode standard --iterations 5
+
+# Parallel mode
+python scripts/benchmark_medgemma_quantization.py --mode parallel --iterations 6 --workers 2
+```
+
+**Commit:** 7eb7732 - Add inference speed optimizations: batched mode, parallel requests, env vars
+
+**Recommendations:**
+1. **Use Batched Mode** for production - 8+ comparisons/minute
+2. **Maintain Model Keep-Alive** - Set OLLAMA_KEEP_ALIVE=24h
+3. **Limit Parallel Workers** - Max 2 concurrent requests (4+ causes timeouts)
+4. For lower latency: Consider embedding-based similarity for clear cases, LLM only for ambiguous
+
 ---
 
-**Last Updated:** 2026-01-19 (Phase 4 Session - Task 5 Complete: Benchmarking)
-**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 5/11 complete - 45%)
+**Last Updated:** 2026-01-20 (Phase 4 Session - Task 6 Complete: Speed Optimization)
+**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 6/11 complete - 55%)
 **This Session:**
-- Completed Task 5: Quantized model benchmarking
-- Downloaded and tested Q4_K_M quantized MedGemma (2.5GB vs 8.6GB)
-- Created comprehensive benchmark comparing full vs quantized models
-- Results: 2.56x speedup, 60% accuracy (vs 80%), 70% memory reduction
-- Updated notebook to use quantized model by default (medgemma:1.5-4b-q4)
-- Verified system stability with both models loaded
+- Completed Task 6: Inference speed optimization
+- Researched LLM speedup strategies (web search, codebase exploration)
+- Discovered MedGemma thought tokens are the bottleneck (not prompt length)
+- Implemented BatchedOllamaClient for 2.7x speedup
+- Added Ollama env vars for performance tuning
+- Created comprehensive benchmark with 4 modes
 
 **Session Commits:**
-- 7b8a221: Add MedGemma quantization benchmarking and documentation
+- 7eb7732: Add inference speed optimizations: batched mode, parallel requests, env vars
 
 **Key Findings:**
-- Quantized model recommended for production (2.56x faster, acceptable accuracy tradeoff)
-- Both models struggle with same edge case (prompt engineering issue, not model issue)
-- System handles both models in GPU memory simultaneously (13.3GB total)
+- MedGemma's internal "thinking" process (500-1000 tokens) is unavoidable
+- Batching multiple comparisons is the most effective optimization
+- Parallel requests have limited benefit (GPU contention, timeouts with >2 workers)
+- Ollama env vars provide marginal (~10-20%) improvement
 
-**Next Session:** Task 6-11 - Update tests/examples, final documentation, optimization
+**Next Session:** Continue Phase 4 - integrate BatchedOllamaClient into PatientMatcher, or proceed to Phase 5
