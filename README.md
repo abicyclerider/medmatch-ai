@@ -27,8 +27,8 @@ The system understands:
 
 ✅ **Phase 1 Complete** - Synthetic data generation system
 ✅ **Phase 2 Complete** - AI-powered entity resolution (94.51% accuracy)
-✅ **Phase 4 In Progress** - Local MedGemma deployment via Ollama (3/11 tasks complete)
-📅 **Phase 3 Planned** - Advanced optimization and uncertainty quantification
+✅ **Phase 4 Complete** - Local MedGemma deployment via Ollama
+🚀 **Phase 5 Starting** - Production service architecture (PostgreSQL + REST API + Docker)
 
 ### Current Capabilities
 
@@ -37,6 +37,7 @@ The system understands:
 - **97% efficiency improvement** through intelligent blocking (33,930 → 437 pairs)
 - **100% accuracy on AI decisions** for medical history comparison
 - **Explainable decisions** with confidence scores and human-readable explanations
+- **HIPAA-compliant** local inference via Ollama + MedGemma
 
 ## Entity Resolution Results
 
@@ -228,17 +229,40 @@ print(f"Recall: {metrics.recall:.2%}")
 
 ```
 medmatch-ai/
-├── src/medmatch/          # Main package
-│   ├── models/            # AI model integration
-│   ├── matching/          # Entity resolution algorithms
-│   ├── data/              # Data processing
-│   └── utils/             # Utilities
-├── notebooks/             # Jupyter notebooks for exploration
-├── tests/                 # Test suite
-├── data/                  # Local data (gitignored)
-├── configs/               # Configuration files
-└── docs/                  # Documentation
+├── src/
+│   ├── medmatch/              # Core library (pip install medmatch)
+│   │   ├── matching/          # Entity resolution algorithms
+│   │   ├── data/              # Data models and generators
+│   │   └── evaluation/        # Metrics and evaluation tools
+│   │
+│   └── medmatch_server/       # Server package (pip install medmatch-server) [Phase 5]
+│       ├── persistence/       # Database layer (PostgreSQL)
+│       ├── service/           # Business logic layer
+│       └── api/               # REST + WebSocket API
+│
+├── docker/                    # Docker deployment [Phase 5]
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── nginx/
+│
+├── notebooks/                 # Jupyter notebooks for exploration
+├── tests/                     # Test suite
+├── scripts/                   # CLI tools and utilities
+├── data/                      # Local data (gitignored)
+└── docs/                      # Documentation
 ```
+
+### Two-Package Architecture (Phase 5)
+
+MedMatch is structured as a monorepo with two installable packages:
+
+1. **`medmatch`** - Core matching library (no database dependencies)
+   - For projects that only need the matching algorithms
+   - `pip install medmatch`
+
+2. **`medmatch-server`** - Full production service
+   - PostgreSQL backend, REST API, WebSocket support
+   - `pip install medmatch-server` or `docker-compose up`
 
 ## Development Workflow
 
@@ -264,33 +288,42 @@ medmatch-ai/
 - ✅ **Phase 2.3:** Feature-based confidence scoring
 - ✅ **Phase 2.4:** AI medical fingerprinting (Gemini API)
 - ✅ **Phase 2.5:** Evaluation & explanation system
-- ✅ **Phase 2.6:** Documentation & polish (current)
+- ✅ **Phase 2.6:** Documentation & polish
 
-### Phase 3: Optimization & Advanced Features (Planned)
+### Phase 4: Local MedGemma Deployment ✅ COMPLETE
+
+- ✅ Ollama integration for local inference
+- ✅ MedGemma 1.5 4B model support (full + quantized)
+- ✅ 2.7x speedup via batched inference
+- ✅ HIPAA-compliant (all data stays local)
+- ✅ OllamaClient with factory pattern
+
+### Phase 5: Production Service Architecture 🚀 IN PROGRESS
+
+Transform MedMatch into a self-contained production service:
+
+- [ ] **Persistence Layer** - SQLAlchemy models, repository pattern, Alembic migrations
+- [ ] **Service Layer** - MatchingService, GoldenRecordService, ReviewService, BatchService
+- [ ] **API Layer** - FastAPI REST + WebSocket, authentication, OpenAPI docs
+- [ ] **Docker Deployment** - docker-compose with PostgreSQL, Ollama, medmatch-server
+
+See [docs/architecture.md](docs/architecture.md) for detailed design.
+
+### Phase 6: Advanced Features (Future)
 
 - [ ] Uncertainty quantification for borderline cases
-- [ ] Advanced error analysis and correction
-- [ ] Performance optimization for large datasets
-- [ ] Ensemble methods combining multiple AI models
-- [ ] Active learning for difficult cases
-
-### Phase 4: MedGemma Integration & Production (Planned)
-
-- [ ] Deploy MedGemma locally via Hugging Face
-- [ ] Migrate from Gemini to MedGemma
-- [ ] Benchmark accuracy improvements
-- [ ] Optimize for Mac Metal performance
 - [ ] Multi-modal support (imaging, lab data)
-- [ ] Clinical workflow integration
-- [ ] Privacy and HIPAA compliance
-- [ ] Kaggle competition submission
+- [ ] Active learning for difficult cases
+- [ ] Ensemble methods combining multiple AI models
 
 ## Documentation
 
-- **[Matching Module README](src/medmatch/matching/README.md)** - Complete entity resolution system documentation with architecture, usage examples, and API reference
-- **[Evaluation Notebook](notebooks/01_entity_resolution_evaluation.ipynb)** - Interactive analysis of matching performance with visualizations
-- **[Quick Start Guide](docs/quickstart.md)** - 5-minute getting started guide for new users
-- **[Project Context](.claude/CLAUDE.md)** - Detailed development history and design decisions
+- **[Architecture Guide](docs/architecture.md)** - Service architecture, database schema, API design (Phase 5)
+- **[Matching Module README](src/medmatch/matching/README.md)** - Entity resolution algorithms and usage
+- **[Ollama Setup Guide](docs/ollama_setup.md)** - Local MedGemma deployment instructions
+- **[Quick Start Guide](docs/quickstart.md)** - 5-minute getting started guide
+- **[Evaluation Notebook](notebooks/01_entity_resolution_evaluation.ipynb)** - Performance analysis with visualizations
+- **[Project Context](.claude/CLAUDE.md)** - Development history and design decisions
 - **[Synthetic Data Plan](docs/synthetic_data_plan.md)** - Dataset specification and generation details
 
 ## Important Notes

@@ -6,7 +6,7 @@
 **Goal:** Prevent wrong-patient medical errors using AI-powered entity resolution
 **Competition:** Google MedGemma Challenge
 **Developer:** Alex (advanced Python/ML experience)
-**Status:** Phase 2 COMPLETE - All targets exceeded, ready for Phase 2.6 (Documentation & Polish)
+**Status:** Phase 5 IN PROGRESS - Production service architecture (PostgreSQL + REST API + Docker)
 
 ## The Problem We're Solving
 
@@ -574,21 +574,64 @@ All targets met!
 ✓ No regressions in existing tests
 ✓ System ready for production use
 
-### Phase 3: Evaluation & Optimization
+### ✅ Phase 4: Local MedGemma Deployment (COMPLETED)
 
-1. Build comprehensive evaluation metrics (precision, recall, F1)
-2. Analyze failure cases (false positives/negatives)
-3. Optimize matching logic based on error analysis
-4. Add uncertainty quantification
-5. Create benchmarking suite
+**Status:** Complete - See detailed notes in "Phase 4" section below
 
-### Phase 4: MedGemma Integration
+**What was built:**
+- Ollama integration for local HIPAA-compliant inference
+- OllamaClient with factory pattern for easy backend switching
+- MedGemma 1.5 4B support (full + Q4 quantized models)
+- 2.7x speedup via batched inference mode
+- Comprehensive benchmarking scripts
 
-1. Deploy MedGemma locally via Hugging Face
-2. Optimize for Mac Metal/MPS performance
-3. Swap Gemini for MedGemma in matching pipeline
-4. Benchmark accuracy improvements
-5. Prepare for Kaggle competition submission
+### 🚀 Phase 5: Production Service Architecture (IN PROGRESS)
+
+**Status:** Starting - Plan approved 2026-01-23
+**Plan Location:** `/Users/alex/.claude/plans/gentle-booping-treehouse.md`
+
+**Goal:** Transform MedMatch into a self-contained production service with:
+- PostgreSQL backend for 10K-1M records
+- REST + WebSocket API for frontend integration
+- Docker deployment (self-hosted)
+- Human-in-the-loop review queue
+- Golden records (MPI-style) patient identity management
+
+**Architecture:**
+
+```text
+Frontend → REST API (FastAPI) → Service Layer → Repository Layer → PostgreSQL
+                                     ↓
+                            Core Matching (unchanged)
+```
+
+**Two-Package Strategy:**
+
+1. `medmatch` - Core library (pip install medmatch) - no DB dependencies
+2. `medmatch-server` - Full service (pip install medmatch-server) - includes API, DB
+
+**Implementation Phases:**
+
+- Week 1: Persistence Layer (SQLAlchemy, repositories, migrations, FileAdapter)
+- Week 2: Service Layer (MatchingService, GoldenRecordService, ReviewService, BatchService)
+- Week 3: API Layer (FastAPI, REST endpoints, WebSocket, authentication)
+- Week 4: Docker & Polish (docker-compose, integration tests, documentation)
+
+**Key Files to Create:**
+
+- `src/medmatch_server/persistence/` - Database layer
+- `src/medmatch_server/service/` - Business logic
+- `src/medmatch_server/api/` - REST + WebSocket
+- `docker/` - Deployment configs
+
+See [docs/architecture.md](docs/architecture.md) for detailed design.
+
+### Phase 6: Advanced Features (Future)
+
+- [ ] Uncertainty quantification for borderline cases
+- [ ] Multi-modal support (imaging, lab data)
+- [ ] Active learning for difficult cases
+- [ ] Ensemble methods combining multiple AI models
 
 ## Key Files to Reference
 
@@ -1342,23 +1385,31 @@ python scripts/benchmark_medgemma_quantization.py --mode parallel --iterations 6
 
 ---
 
-**Last Updated:** 2026-01-20 (Phase 4 Session - Task 6 Complete: Speed Optimization)
-**Current Phase:** Phase 4 - Local MedGemma Deployment (Task 6/11 complete - 55%)
+**Last Updated:** 2026-01-23 (Phase 5 Planning Session)
+**Current Phase:** Phase 5 - Production Service Architecture (Week 0 - Planning complete)
+**Plan Location:** `/Users/alex/.claude/plans/gentle-booping-treehouse.md`
+
 **This Session:**
-- Completed Task 6: Inference speed optimization
-- Researched LLM speedup strategies (web search, codebase exploration)
-- Discovered MedGemma thought tokens are the bottleneck (not prompt length)
-- Implemented BatchedOllamaClient for 2.7x speedup
-- Added Ollama env vars for performance tuning
-- Created comprehensive benchmark with 4 modes
 
-**Session Commits:**
-- 7eb7732: Add inference speed optimizations: batched mode, parallel requests, env vars
+- Completed Phase 5 architecture planning
+- Designed PostgreSQL schema (6 tables: source_records, golden_records, record_links, match_results, review_queue, batch_jobs)
+- Designed REST API endpoints (patients, matching, golden-records, review, WebSocket)
+- Planned two-package monorepo strategy (medmatch + medmatch-server)
+- Created docs/architecture.md with full service design
+- Updated README.md with Phase 5 roadmap
+- Updated CLAUDE.md with Phase 5 details
 
-**Key Findings:**
-- MedGemma's internal "thinking" process (500-1000 tokens) is unavoidable
-- Batching multiple comparisons is the most effective optimization
-- Parallel requests have limited benefit (GPU contention, timeouts with >2 workers)
-- Ollama env vars provide marginal (~10-20%) improvement
+**Key Architecture Decisions:**
 
-**Next Session:** Continue Phase 4 - integrate BatchedOllamaClient into PatientMatcher, or proceed to Phase 5
+- PostgreSQL with JSONB for flexible demographics/medical data
+- Repository pattern with Unit of Work for testability
+- FastAPI for REST + WebSocket support
+- Ollama remains default AI backend (HIPAA-compliant)
+- Backward compatible - existing CLI/notebooks continue working
+
+**Next Steps:**
+
+1. Week 1: Implement persistence layer (SQLAlchemy models, repositories)
+2. Week 2: Implement service layer (MatchingService, GoldenRecordService)
+3. Week 3: Implement API layer (FastAPI endpoints, WebSocket)
+4. Week 4: Docker deployment and testing

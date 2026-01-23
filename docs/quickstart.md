@@ -2,11 +2,20 @@
 
 Get started with MedMatch AI entity resolution in under 5 minutes.
 
+## Deployment Options
+
+MedMatch supports two deployment modes:
+
+- **Library Mode** - Python integration, notebooks, CLI (5 min setup)
+- **Service Mode** - Production API with PostgreSQL and Docker (30 min setup)
+
+This guide covers **Library Mode**. For Service Mode, see [Architecture Guide](architecture.md).
+
 ## Prerequisites
 
 - Python 3.12.4
 - Git
-- Google AI API key (optional, for AI features)
+- Ollama (for local AI) OR Google AI API key (for cloud AI)
 
 ## 1. Installation
 
