@@ -248,8 +248,125 @@ python scripts/run_matcher.py \
   --api-rate-limit 5
 ```
 
+## benchmark_entity_resolution.py
+
+Efficiently benchmarks AI performance on the actual entity resolution problem.
+
+### How It Works
+
+Instead of re-running the full pipeline repeatedly, this script:
+
+1. **Runs deterministic stages once** (blocking → rules → scoring)
+2. **Identifies ambiguous pairs** (demographic score 0.50-0.90) that need AI
+3. **Benchmarks only the AI layer** with different configurations
+
+This is much faster than running the full pipeline for each configuration.
+
+### Quick Start
+
+```bash
+# Compare standard vs batched mode
+python scripts/benchmark_entity_resolution.py --mode compare --save
+
+# Batched mode only (faster)
+python scripts/benchmark_entity_resolution.py --mode batched --batch-size 3
+
+# Standard mode only (baseline)
+python scripts/benchmark_entity_resolution.py --mode standard
+
+# Use full (non-quantized) model
+python scripts/benchmark_entity_resolution.py --model medgemma:1.5-4b
+```
+
+### Command-Line Options
+
+- `--mode {standard,batched,compare}` - Benchmark mode (default: compare)
+- `--model MODEL` - Ollama model name (default: medgemma:1.5-4b-q4)
+- `--batch-size N` - Batch size for batched mode (default: 3)
+- `--data-dir PATH` - Path to synthetic data directory
+- `--save` - Save results to JSON file
+
+### Output
+
+```
+============================================================
+ENTITY RESOLUTION AI BENCHMARK
+============================================================
+
+Pipeline breakdown:
+  Rules decided: 324 pairs
+  Scoring decided (clear): 0 pairs
+  AI needed (ambiguous): 113 pairs
+
+Ambiguous pairs by difficulty:
+  ambiguous: 54
+  hard: 59
+
+============================================================
+Mode: batched (size=3) | Model: medgemma:1.5-4b-q4
+============================================================
+  Pairs evaluated: 113
+  Total time: 285.3s
+  Avg per pair: 2.52s
+  Throughput: 23.8/min
+
+  Accuracy: 85.0% (96/113)
+  TP: 45, TN: 51, FP: 8, FN: 9
+
+  By difficulty:
+    hard: 88.1%
+    ambiguous: 81.5%
+```
+
+### Why This Approach?
+
+- **Efficient:** Only benchmarks the AI layer, not the whole pipeline
+- **Realistic:** Uses actual entity resolution pairs, not synthetic test cases
+- **Actionable:** Shows accuracy impact of speed optimizations
+
+## benchmark_medgemma_quantization.py
+
+Low-level inference speed benchmark for MedGemma models.
+
+### Quick Start
+
+```bash
+# Standard mode (baseline)
+python scripts/benchmark_medgemma_quantization.py --mode standard --iterations 5
+
+# Batched mode (recommended)
+python scripts/benchmark_medgemma_quantization.py --mode batched --iterations 9 --batch-size 3
+
+# Parallel mode
+python scripts/benchmark_medgemma_quantization.py --mode parallel --iterations 6 --workers 2
+
+# Compare all modes
+python scripts/benchmark_medgemma_quantization.py --mode compare --iterations 5
+```
+
+### Command-Line Options
+
+- `--mode {standard,optimized,parallel,batched,compare}` - Benchmark mode
+- `--iterations N` - Number of test iterations (default: 10)
+- `--full-model MODEL` - Full model name (default: medgemma:1.5-4b)
+- `--quantized-model MODEL` - Quantized model name (default: medgemma:1.5-4b-q4)
+- `--workers N` - Number of parallel workers (default: 2)
+- `--batch-size N` - Batch size for batched mode (default: 3)
+- `--no-save` - Don't save results to file
+
+### Test Cases
+
+The benchmark uses 5 medical history comparison test cases:
+
+1. **Matching (abbreviations):** T2DM/HTN vs Type 2 Diabetes/Hypertension
+2. **Different conditions:** CAD vs COPD
+3. **Partial match:** Shared HTN only
+4. **Medication variations:** Tylenol vs acetaminophen
+5. **Complex history:** ESRD/DM2/CHF with abbreviations
+
 ## See Also
 
 - [Main README](../README.md) - Project overview and setup
 - [Matching Module README](../src/medmatch/matching/README.md) - Entity resolution documentation
 - [Evaluation Notebook](../notebooks/01_entity_resolution_evaluation.ipynb) - Interactive analysis
+- [Ollama Setup Guide](../docs/ollama_setup.md) - Local MedGemma deployment
