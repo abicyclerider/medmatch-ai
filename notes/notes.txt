@@ -1,0 +1,50 @@
+# Entity Resolution Capabilities
+
+These are the things that entity resolution can do:
+
+## Data Discovery
+- Data discovery capabilities
+- Basic descriptive statistics and aggregates
+  - Finds duplicates and other problems
+- Profiling, descriptive stats, duplication, errors, alerts
+
+## Data Governance
+- Data governance features
+- Define handbook of rules, e.g., MRN needs to be unique across patients
+
+## Data Lineage
+- Historize data (Medallion architecture)
+- Association IDs between data layers
+
+## Entity Resolution
+- Enrich and standardize data
+  - Uppercase and standardize names
+  - Geocode address
+  - Add guessed gender
+- Validate data
+  - Flag bad data
+- Match and find duplicates
+  - Silver Layer
+- Survivorship/consolidation: which record and/or value wins?
+- Publish golden records (make the Gold layer)
+
+## Data Entry
+- Workflows
+- UI
+- Author new records
+- Import CSV and Excel
+- Edit existing records while doing data certification
+
+## Stewardship
+- Workflows
+- UI to manually merge or split records
+
+## Browse the Data UI
+
+## Dashboard Builder
+- Business intelligence
+
+## REST API
+
+## ETL
+- Piping the data in and out
